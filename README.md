@@ -27,11 +27,11 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-
+```
 ### 2) Configure environment variables
 ```bash
 cp .env.example .env
-
+```
 ### 3) Supabase schema
 Run `supabase/schema.sql` in Supabase **SQL Editor**.
 
@@ -46,27 +46,27 @@ This will create tables:
 ### 1) Fetch floorsheet CSV
 ```bash
 nepse-cli --get-floorsheet --to-csv --output-file data/raw/floorsheet_latest.csv
-
+```
 ### 2) Ingest (raw + normalized trades)
 
 ```bash
 python scripts/ingest_floorsheet.py
-
+```
 ### 3) Build daily features
 
 ```bash
 python scripts/build_daily_features.py YYYY-MM-DD
-
+```
 ### 4) Detect anomalies
 
 ```bash
 python scripts/detect_anomalies.py YYYY-MM-DD
-
+```
 ## Run the API
 
 ```bash
 uvicorn src.flooriq.api.main:app --reload --port 8000
-
+```
 ## API endpoints
 
 - `GET /insights/broker/{id}`
