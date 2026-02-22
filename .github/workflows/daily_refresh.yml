@@ -1,0 +1,66 @@
+name: daily-refresh
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Nepal Time is UTC+5:45.
+    # Run at 10:30 UTC ~= 16:15 NPT (after market close)
+    - cron: "30 10 * * *"
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Fetch floorsheet to CSV
+        run: |
+          mkdir -p data/raw
+          nepse-cli --get-floorsheet --to-csv --output-file data/raw/floorsheet_latest.csv
+
+      - name: Ingest (raw + trades)
+        env:
+          SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
+          SUPABASE_DB_PORT: "5432"
+          SUPABASE_DB_NAME: "postgres"
+          SUPABASE_DB_USER: "postgres"
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_SSLMODE: "require"
+        run: |
+          python scripts/ingest_floorsheet.py
+
+      - name: Detect business date + build features + anomalies
+        env:
+          SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
+          SUPABASE_DB_PORT: "5432"
+          SUPABASE_DB_NAME: "postgres"
+          SUPABASE_DB_USER: "postgres"
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_SSLMODE: "require"
+        run: |
+          python - << 'PY'
+          import pandas as pd
+          from pathlib import Path
+          p = Path("data/raw/floorsheet_latest.csv")
+          df = pd.read_csv(p, nrows=5)
+          # businessDate column exists from nepse-cli export
+          d = pd.to_datetime(df["businessDate"].iloc[0]).date().isoformat()
+          print(d)
+          Path("business_date.txt").write_text(d)
+          PY
+          D=$(cat business_date.txt)
+          python scripts/build_daily_features.py "$D"
+          python scripts/detect_anomalies.py "$D"
