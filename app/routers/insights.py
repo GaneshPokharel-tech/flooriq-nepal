@@ -149,3 +149,55 @@ def anomalies_today(
         )
 
     return {"disclaimer": DISCLAIMER, "count": len(data), "data": data}
+
+@router.get("/insights/brokers/top")
+def top_brokers(
+    metric: str = "net_amount",
+    business_date: Optional[str] = None,
+    limit: int = 20,
+    conn: psycopg.Connection = Depends(db_conn),
+):
+    """
+    B2B: Rank brokers by a chosen metric for a given business_date.
+    metric: net_amount | total_buy_amount | total_sell_amount | net_qty | trades_buy_count | trades_sell_count
+    """
+    allowed = {
+        "net_amount": "net_amount",
+        "total_buy_amount": "total_buy_amount",
+        "total_sell_amount": "total_sell_amount",
+        "net_qty": "net_qty",
+        "trades_buy_count": "trades_buy_count",
+        "trades_sell_count": "trades_sell_count",
+    }
+    if metric not in allowed:
+        raise HTTPException(status_code=400, detail=f"Invalid metric. Choose from {list(allowed.keys())}")
+
+    if limit < 1:
+        limit = 1
+    if limit > 200:
+        limit = 200
+
+    col = allowed[metric]
+
+    with conn.cursor() as cur:
+        if business_date is None:
+            cur.execute("SELECT MAX(business_date) FROM public.broker_daily_features")
+            business_date = cur.fetchone()[0]
+            if business_date is None:
+                raise HTTPException(status_code=404, detail="No broker features found yet.")
+
+        cur.execute(
+            f"""
+            SELECT business_date, broker_id, {col}
+            FROM public.broker_daily_features
+            WHERE business_date=%s
+            ORDER BY {col} DESC
+            LIMIT %s
+            """,
+            (business_date, limit),
+        )
+        rows = cur.fetchall()
+
+    data = [{"business_date": r[0], "broker_id": r[1], metric: float(r[2])} for r in rows]
+    return {"disclaimer": DISCLAIMER, "count": len(data), "data": data}
+
