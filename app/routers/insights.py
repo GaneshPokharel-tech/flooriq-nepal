@@ -1,6 +1,7 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+
 import psycopg
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.dependencies import db_conn
 
@@ -50,12 +51,20 @@ def broker_insights(
         raise HTTPException(status_code=404, detail="Broker not found for that date.")
 
     keys = [
-        "business_date", "broker_id",
-        "total_buy_qty", "total_sell_qty", "total_buy_amount", "total_sell_amount",
-        "net_qty", "net_amount",
-        "unique_symbols_buy", "unique_symbols_sell",
-        "trades_buy_count", "trades_sell_count",
-        "avg_buy_price", "avg_sell_price",
+        "business_date",
+        "broker_id",
+        "total_buy_qty",
+        "total_sell_qty",
+        "total_buy_amount",
+        "total_sell_amount",
+        "net_qty",
+        "net_amount",
+        "unique_symbols_buy",
+        "unique_symbols_sell",
+        "trades_buy_count",
+        "trades_sell_count",
+        "avg_buy_price",
+        "avg_sell_price",
         "updated_at",
     ]
     return {"disclaimer": DISCLAIMER, "data": dict(zip(keys, row))}
@@ -95,10 +104,16 @@ def symbol_insights(
         raise HTTPException(status_code=404, detail="Symbol not found for that date.")
 
     keys = [
-        "business_date", "stock_symbol",
-        "total_qty", "total_amount", "trades_count",
-        "vwap", "high_price", "low_price",
-        "unique_buy_brokers", "unique_sell_brokers",
+        "business_date",
+        "stock_symbol",
+        "total_qty",
+        "total_amount",
+        "trades_count",
+        "vwap",
+        "high_price",
+        "low_price",
+        "unique_buy_brokers",
+        "unique_sell_brokers",
         "updated_at",
     ]
     return {"disclaimer": DISCLAIMER, "data": dict(zip(keys, row))}
@@ -150,6 +165,7 @@ def anomalies_today(
 
     return {"disclaimer": DISCLAIMER, "count": len(data), "data": data}
 
+
 @router.get("/insights/brokers/top")
 def top_brokers(
     metric: str = "net_amount",
@@ -157,10 +173,6 @@ def top_brokers(
     limit: int = 20,
     conn: psycopg.Connection = Depends(db_conn),
 ):
-    """
-    B2B: Rank brokers by a chosen metric for a given business_date.
-    metric: net_amount | total_buy_amount | total_sell_amount | net_qty | trades_buy_count | trades_sell_count
-    """
     allowed = {
         "net_amount": "net_amount",
         "total_buy_amount": "total_buy_amount",
@@ -201,6 +213,7 @@ def top_brokers(
     data = [{"business_date": r[0], "broker_id": r[1], metric: float(r[2])} for r in rows]
     return {"disclaimer": DISCLAIMER, "count": len(data), "data": data}
 
+
 @router.get("/insights/symbols/top")
 def top_symbols(
     metric: str = "total_amount",
@@ -208,10 +221,6 @@ def top_symbols(
     limit: int = 20,
     conn: psycopg.Connection = Depends(db_conn),
 ):
-    """
-    B2B: Rank symbols by a chosen metric for a given business_date.
-    metric: total_amount | total_qty | trades_count | vwap
-    """
     allowed = {
         "total_amount": "total_amount",
         "total_qty": "total_qty",
@@ -255,4 +264,3 @@ def top_symbols(
 
     data = [{"business_date": r[0], "stock_symbol": r[1], metric: conv(r[2])} for r in rows]
     return {"disclaimer": DISCLAIMER, "count": len(data), "data": data}
-
