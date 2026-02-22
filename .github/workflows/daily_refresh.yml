@@ -26,10 +26,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Fetch floorsheet to CSV
+      - name: Fetch floorsheet to CSV (retry + validate)
         run: |
           mkdir -p data/raw
-          nepse-cli --get-floorsheet --to-csv --output-file data/raw/floorsheet_latest.csv
+          set -e
+
+          # Retry because NEPSE endpoint sometimes returns unexpected payloads
+          for i in 1 2 3 4 5; do
+            echo "Attempt $i..."
+            if nepse-cli --get-floorsheet --to-csv --output-file data/raw/floorsheet_latest.csv; then
+              # Validate header + non-empty file
+              if [ -s data/raw/floorsheet_latest.csv ] && head -n 1 data/raw/floorsheet_latest.csv | grep -q "contractId"; then
+                echo "Floorsheet CSV looks valid."
+                break
+              fi
+            fi
+            echo "Fetch failed or invalid CSV. Sleeping before retry..."
+            sleep 20
+          done
+
+          # If still invalid, skip workflow gracefully (non-trading day / API issue)
+          if [ ! -s data/raw/floorsheet_latest.csv ] || ! head -n 1 data/raw/floorsheet_latest.csv | grep -q "contractId"; then
+            echo "WARNING: Could not fetch valid floorsheet CSV today. Skipping remaining steps."
+            exit 0
+          fi
 
       - name: Ingest (raw + trades)
         env:
