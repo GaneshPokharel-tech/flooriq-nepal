@@ -201,3 +201,58 @@ def top_brokers(
     data = [{"business_date": r[0], "broker_id": r[1], metric: float(r[2])} for r in rows]
     return {"disclaimer": DISCLAIMER, "count": len(data), "data": data}
 
+@router.get("/insights/symbols/top")
+def top_symbols(
+    metric: str = "total_amount",
+    business_date: Optional[str] = None,
+    limit: int = 20,
+    conn: psycopg.Connection = Depends(db_conn),
+):
+    """
+    B2B: Rank symbols by a chosen metric for a given business_date.
+    metric: total_amount | total_qty | trades_count | vwap
+    """
+    allowed = {
+        "total_amount": "total_amount",
+        "total_qty": "total_qty",
+        "trades_count": "trades_count",
+        "vwap": "vwap",
+    }
+    if metric not in allowed:
+        raise HTTPException(status_code=400, detail=f"Invalid metric. Choose from {list(allowed.keys())}")
+
+    if limit < 1:
+        limit = 1
+    if limit > 200:
+        limit = 200
+
+    col = allowed[metric]
+
+    with conn.cursor() as cur:
+        if business_date is None:
+            cur.execute("SELECT MAX(business_date) FROM public.symbol_daily_features")
+            business_date = cur.fetchone()[0]
+            if business_date is None:
+                raise HTTPException(status_code=404, detail="No symbol features found yet.")
+
+        cur.execute(
+            f"""
+            SELECT business_date, stock_symbol, {col}
+            FROM public.symbol_daily_features
+            WHERE business_date=%s
+            ORDER BY {col} DESC NULLS LAST
+            LIMIT %s
+            """,
+            (business_date, limit),
+        )
+        rows = cur.fetchall()
+
+    def conv(v):
+        try:
+            return float(v)
+        except Exception:
+            return v
+
+    data = [{"business_date": r[0], "stock_symbol": r[1], metric: conv(r[2])} for r in rows]
+    return {"disclaimer": DISCLAIMER, "count": len(data), "data": data}
+
