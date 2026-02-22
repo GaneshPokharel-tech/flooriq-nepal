@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     supabase_db_user: str = Field(default="postgres", validation_alias="SUPABASE_DB_USER")
     supabase_db_password: str = Field(default="", validation_alias="SUPABASE_DB_PASSWORD")
     supabase_db_sslmode: str = Field(default="require", validation_alias="SUPABASE_DB_SSLMODE")
+    redis_url: str | None = Field(default=None, validation_alias="REDIS_URL")
 
 
 settings = Settings()

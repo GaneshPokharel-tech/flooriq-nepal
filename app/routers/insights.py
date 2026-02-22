@@ -1,11 +1,36 @@
 from typing import Optional
 
+import json
+
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.dependencies import db_conn
+from app.dependencies import db_conn, redis_client
 
 router = APIRouter(tags=["insights"])
+
+
+CACHE_TTL_SECONDS = 60
+
+async def _cache_get(redis, key: str):
+    if redis is None:
+        return None
+    try:
+        v = await redis.get(key)
+        if not v:
+            return None
+        return json.loads(v)
+    except Exception:
+        return None
+
+async def _cache_set(redis, key: str, value, ttl: int = CACHE_TTL_SECONDS):
+    if redis is None:
+        return
+    try:
+        await redis.setex(key, ttl, json.dumps(value, default=str))
+    except Exception:
+        return
+
 
 DISCLAIMER = {
     "sebon_safe": True,
@@ -120,15 +145,21 @@ def symbol_insights(
 
 
 @router.get("/anomalies/today")
-def anomalies_today(
+async def anomalies_today(
     business_date: Optional[str] = None,
     limit: int = 50,
     conn: psycopg.Connection = Depends(db_conn),
+    redis=Depends(redis_client),
 ):
     if limit < 1:
         limit = 1
     if limit > 200:
         limit = 200
+
+    cache_key = f"flooriq:anomalies:today:{business_date or 'latest'}:limit:{limit}"
+    cached = await _cache_get(redis, cache_key)
+    if cached is not None:
+        return cached
 
     with conn.cursor() as cur:
         if business_date is None:
@@ -163,15 +194,18 @@ def anomalies_today(
             }
         )
 
-    return {"disclaimer": DISCLAIMER, "count": len(data), "data": data}
+    payload = {"disclaimer": DISCLAIMER, "count": len(data), "data": data}
+    await _cache_set(redis, cache_key, payload)
+    return payload
 
 
 @router.get("/insights/brokers/top")
-def top_brokers(
+async def top_brokers(
     metric: str = "net_amount",
     business_date: Optional[str] = None,
     limit: int = 20,
     conn: psycopg.Connection = Depends(db_conn),
+    redis=Depends(redis_client),
 ):
     allowed = {
         "net_amount": "net_amount",
@@ -188,6 +222,11 @@ def top_brokers(
         limit = 1
     if limit > 200:
         limit = 200
+
+    cache_key = f"flooriq:anomalies:today:{business_date or 'latest'}:limit:{limit}"
+    cached = await _cache_get(redis, cache_key)
+    if cached is not None:
+        return cached
 
     col = allowed[metric]
 
@@ -211,15 +250,18 @@ def top_brokers(
         rows = cur.fetchall()
 
     data = [{"business_date": r[0], "broker_id": r[1], metric: float(r[2])} for r in rows]
-    return {"disclaimer": DISCLAIMER, "count": len(data), "data": data}
+    payload = {"disclaimer": DISCLAIMER, "count": len(data), "data": data}
+    await _cache_set(redis, cache_key, payload)
+    return payload
 
 
 @router.get("/insights/symbols/top")
-def top_symbols(
+async def top_symbols(
     metric: str = "total_amount",
     business_date: Optional[str] = None,
     limit: int = 20,
     conn: psycopg.Connection = Depends(db_conn),
+    redis=Depends(redis_client),
 ):
     allowed = {
         "total_amount": "total_amount",
@@ -234,6 +276,11 @@ def top_symbols(
         limit = 1
     if limit > 200:
         limit = 200
+
+    cache_key = f"flooriq:anomalies:today:{business_date or 'latest'}:limit:{limit}"
+    cached = await _cache_get(redis, cache_key)
+    if cached is not None:
+        return cached
 
     col = allowed[metric]
 
@@ -263,4 +310,6 @@ def top_symbols(
             return v
 
     data = [{"business_date": r[0], "stock_symbol": r[1], metric: conv(r[2])} for r in rows]
-    return {"disclaimer": DISCLAIMER, "count": len(data), "data": data}
+    payload = {"disclaimer": DISCLAIMER, "count": len(data), "data": data}
+    await _cache_set(redis, cache_key, payload)
+    return payload
