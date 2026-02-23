@@ -1,26 +1,12 @@
-import os
 import sys
-from dotenv import load_dotenv
-import psycopg
 
-load_dotenv()
+from app.database import get_conn
 
-HOST = os.getenv("SUPABASE_DB_HOST")
-PORT = int(os.getenv("SUPABASE_DB_PORT", "5432"))
-DB   = os.getenv("SUPABASE_DB_NAME", "postgres")
-USER = os.getenv("SUPABASE_DB_USER", "postgres")
-PWD  = os.getenv("SUPABASE_DB_PASSWORD")
-SSLMODE = os.getenv("SUPABASE_DB_SSLMODE", "require")
 
 def die(msg: str, code: int = 1):
     print(f"[ERROR] {msg}")
     sys.exit(code)
 
-def get_conn():
-    if not HOST or not PWD:
-        die("Missing SUPABASE_DB_HOST or SUPABASE_DB_PASSWORD in .env")
-    conninfo = f"host={HOST} port={PORT} dbname={DB} user={USER} password={PWD} sslmode={SSLMODE}"
-    return psycopg.connect(conninfo)
 
 def build_broker_features(conn, business_date: str):
     sql = """

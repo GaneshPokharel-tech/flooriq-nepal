@@ -1,19 +1,9 @@
-import os
 import sys
 from pathlib import Path
+
 import pandas as pd
-from dotenv import load_dotenv
-import psycopg
 
-# ---------- Config ----------
-load_dotenv()
-
-HOST = os.getenv("SUPABASE_DB_HOST")
-PORT = int(os.getenv("SUPABASE_DB_PORT", "5432"))
-DB   = os.getenv("SUPABASE_DB_NAME", "postgres")
-USER = os.getenv("SUPABASE_DB_USER", "postgres")
-PWD  = os.getenv("SUPABASE_DB_PASSWORD")
-SSLMODE = os.getenv("SUPABASE_DB_SSLMODE", "require")
+from app.database import get_conn
 
 CSV_PATH = Path("data/raw/floorsheet_latest.csv")
 
@@ -22,17 +12,11 @@ TRADES_TABLE = "public.trades"
 
 BATCH_SIZE = 5000  # tune if needed
 
+
 def die(msg: str, code: int = 1):
     print(f"[ERROR] {msg}")
     sys.exit(code)
 
-def get_conn():
-    if not HOST or not PWD:
-        die("Missing SUPABASE_DB_HOST or SUPABASE_DB_PASSWORD in .env")
-    conninfo = (
-        f"host={HOST} port={PORT} dbname={DB} user={USER} password={PWD} sslmode={SSLMODE}"
-    )
-    return psycopg.connect(conninfo)
 
 def load_csv() -> pd.DataFrame:
     if not CSV_PATH.exists():
