@@ -5,6 +5,8 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import create_engine, pool
 
+from urllib.parse import quote_plus
+
 from app.config import Settings, ENV_FILE
 
 config = context.config
@@ -23,11 +25,13 @@ def _build_sqlalchemy_url() -> str:
     if not s.supabase_db_host or not s.supabase_db_password:
         raise RuntimeError("Missing DB credentials (SUPABASE_DB_HOST / SUPABASE_DB_PASSWORD) in .env")
 
-    return (
-        f"postgresql+psycopg://{s.supabase_db_user}:{s.supabase_db_password}"
-        f"@{s.supabase_db_host}:{s.supabase_db_port}/{s.supabase_db_name}"
-        f"?sslmode={s.supabase_db_sslmode}"
-    )
+    user = quote_plus(str(s.supabase_db_user))
+    pwd = quote_plus(str(s.supabase_db_password))
+    host = str(s.supabase_db_host)
+    db = str(s.supabase_db_name)
+
+    return f"postgresql+psycopg://{user}:{pwd}@{host}:{s.supabase_db_port}/{db}?sslmode={s.supabase_db_sslmode}"
+
 
 
 def run_migrations_offline() -> None:
