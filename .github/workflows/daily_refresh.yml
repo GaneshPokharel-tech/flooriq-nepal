@@ -57,9 +57,9 @@ jobs:
         if: steps.fetch.outputs.skip != 'true'
         env:
           SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
-          SUPABASE_DB_PORT: "5432"
+          SUPABASE_DB_PORT: ${{ secrets.SUPABASE_DB_PORT }}
           SUPABASE_DB_NAME: "postgres"
-          SUPABASE_DB_USER: "postgres"
+          SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_DB_SSLMODE: "require"
         run: |
