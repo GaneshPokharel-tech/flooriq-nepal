@@ -63,4 +63,4 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_DB_SSLMODE: "require"
         run: |
-          python scripts/refresh.py --skip-fetch
+          PYTHONPATH=. python scripts/refresh.py --skip-fetch
