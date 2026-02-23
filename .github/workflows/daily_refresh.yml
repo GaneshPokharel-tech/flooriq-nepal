@@ -53,7 +53,7 @@ jobs:
             exit 0
           fi
 
-      - name: Ingest (raw + trades)
+      - name: Refresh pipeline (ingest + features + anomalies)
         if: steps.fetch.outputs.skip != 'true'
         env:
           SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
@@ -63,28 +63,4 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_DB_SSLMODE: "require"
         run: |
-          python scripts/ingest_floorsheet.py
-
-      - name: Detect business date + build features + anomalies
-        if: steps.fetch.outputs.skip != 'true'
-        env:
-          SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
-          SUPABASE_DB_PORT: "5432"
-          SUPABASE_DB_NAME: "postgres"
-          SUPABASE_DB_USER: "postgres"
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          SUPABASE_DB_SSLMODE: "require"
-        run: |
-          python - << 'PY'
-          import pandas as pd
-          from pathlib import Path
-          p = Path("data/raw/floorsheet_latest.csv")
-          df = pd.read_csv(p, nrows=5)
-          # businessDate column exists from nepse-cli export
-          d = pd.to_datetime(df["businessDate"].iloc[0]).date().isoformat()
-          print(d)
-          Path("business_date.txt").write_text(d)
-          PY
-          D=$(cat business_date.txt)
-          python scripts/build_daily_features.py "$D"
-          python scripts/detect_anomalies.py "$D"
+          python scripts/refresh.py --skip-fetch
