@@ -223,7 +223,7 @@ async def top_brokers(
     if limit > 200:
         limit = 200
 
-    cache_key = f"flooriq:anomalies:today:{business_date or 'latest'}:limit:{limit}"
+    cache_key = f"flooriq:insights:brokers:top:{metric}:{business_date or 'latest'}:limit:{limit}"
     cached = await _cache_get(redis, cache_key)
     if cached is not None:
         return cached
@@ -277,7 +277,7 @@ async def top_symbols(
     if limit > 200:
         limit = 200
 
-    cache_key = f"flooriq:anomalies:today:{business_date or 'latest'}:limit:{limit}"
+    cache_key = f"flooriq:insights:symbols:top:{metric}:{business_date or 'latest'}:limit:{limit}"
     cached = await _cache_get(redis, cache_key)
     if cached is not None:
         return cached
