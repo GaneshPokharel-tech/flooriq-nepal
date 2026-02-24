@@ -38,4 +38,4 @@ def get_conn() -> psycopg.Connection:
     if hostaddr:
         base = f"hostaddr={hostaddr} " + base
 
-    return psycopg.connect(base)
+    return psycopg.connect(base, prepare_threshold=0)
