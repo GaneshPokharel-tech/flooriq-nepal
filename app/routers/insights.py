@@ -45,10 +45,11 @@ DISCLAIMER = {
 
 
 @router.get("/insights/broker/{broker_id}")
-def broker_insights(
+async def broker_insights(
     broker_id: int,
     business_date: Optional[str] = None,
     conn: psycopg.Connection = Depends(db_conn),
+    redis=Depends(redis_client),
 ):
     """
     Broker intelligence endpoint (SEBON-safe analytics).
@@ -63,6 +64,12 @@ def broker_insights(
             return float(v)
         except Exception:
             return v
+
+    cache_key = f"flooriq:insights:broker:{broker_id}:{business_date or 'latest'}"
+    cached = await _cache_get(redis, cache_key)
+    if cached is not None:
+        return cached
+
 
     with conn.cursor() as cur:
         if business_date is None:
@@ -214,6 +221,7 @@ def broker_insights(
         "anomalies": anomalies,
         "risk": risk,
     }
+    await _cache_set(redis, cache_key, payload)
     return payload
 
 
