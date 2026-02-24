@@ -135,6 +135,26 @@ def broker_insights(
         )
         top_rows = cur.fetchall()
 
+        # HHI (Herfindahl–Hirschman Index) for buy-side concentration
+        # HHI = sum(share^2) * 10000. Higher = more concentrated.
+        cur.execute(
+            """
+            SELECT stock_symbol, SUM(amount)::numeric AS amt
+            FROM public.trades
+            WHERE business_date=%s AND buyer_member_id=%s
+            GROUP BY stock_symbol
+            """,
+            (business_date, str(broker_id)),
+        )
+        all_symbol_rows = cur.fetchall()
+        hhi = 0.0
+        if total_buy_amt and total_buy_amt != 0 and all_symbol_rows:
+            for _sym, _amt in all_symbol_rows:
+                share = float(_amt / total_buy_amt)
+                hhi += share * share
+            hhi = hhi * 10000.0
+
+
         top_symbols = []
         top1_pct = 0.0
         if total_buy_amt and total_buy_amt != 0 and top_rows:
@@ -143,10 +163,10 @@ def broker_insights(
             pct = float((amt / total_buy_amt) * 100) if total_buy_amt and total_buy_amt != 0 else 0.0
             top_symbols.append({"symbol": sym, "amount": fnum(amt), "share_pct": round(pct, 4)})
 
-        # Simple risk heuristic (we will upgrade to HHI next)
-        if top1_pct >= 40:
+        # Risk heuristic (HHI-first, then top1 share as tie-break)
+        if hhi >= 2500 or top1_pct >= 40:
             risk = "HIGH"
-        elif top1_pct >= 25:
+        elif hhi >= 1500 or top1_pct >= 25:
             risk = "MEDIUM"
         else:
             risk = "LOW"
@@ -156,6 +176,7 @@ def broker_insights(
             "total_buy_amount": fnum(total_buy_amt),
             "top1_symbol": top_rows[0][0] if top_rows else None,
             "top1_share_pct": round(top1_pct, 4),
+            "hhi": round(hhi, 2),
             "top_symbols": top_symbols,
         }
 
