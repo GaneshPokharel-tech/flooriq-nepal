@@ -1,0 +1,558 @@
+symbol,sector
+9%CSB2082,Government Bond
+9%CSB2083,Government Bond
+ACLBSL,Microfinance
+ACLBSLP,Promotor Share
+ADBL,Commercial Banks
+ADBLD83,Corporate Debenture
+AHL,Hydro Power
+AHPC,Hydro Power
+AKJCL,Hydro Power
+AKPL,Hydro Power
+ALBSL,Microfinance
+ALBSLP,Promotor Share
+ALICL,Life Insurance
+ALICLP,Promotor Share
+ANLB,Microfinance
+ANLBP,Promotor Share
+API,Hydro Power
+AVYAN,Microfinance
+AVYANP,Promotor Share
+BANDIPUR,Hotels And Tourism
+BARUN,Hydro Power
+BBC,Tradings
+BEDC,Hydro Power
+BFC,Finance
+BGWT,Hydro Power
+BHCL,Hydro Power
+BHDC,Hydro Power
+BHL,Hydro Power
+BHPL,Hydro Power
+BNHC,Hydro Power
+BNL,Manufacturing And Processing
+BNT,Manufacturing And Processing
+BOKD2079,Corporate Debenture
+BOKD2086,Corporate Debenture
+BOKD86,Corporate Debenture
+BOKD86KA,Corporate Debenture
+BPCL,Hydro Power
+BUNGAL,Hydro Power
+C30MF,Mutual Fund
+CBBL,Microfinance
+CBBLPO,Promotor Share
+CBLD88,Corporate Debenture
+CCBD88,Corporate Debenture
+CFCL,Finance
+CFCLPO,Promotor Share
+CGH,Hotels And Tourism
+CHCL,Hydro Power
+CHDC,Investment
+CHL,Hydro Power
+CIT,Investment
+CITPO,Promotor Share
+CITY,Hotels And Tourism
+CIZBD86,Corporate Debenture
+CKHL,Hydro Power
+CLI,Life Insurance
+CLIP,Promotor Share
+CMF2,Mutual Fund
+CORBL,Development Bank Limited
+CORBLPO,Promotor Share
+CREST,Life Insurance
+CRESTP,Promotor Share
+CSBY,Mutual Fund
+CSY,Mutual Fund
+CYCL,Microfinance
+CYCLP,Promotor Share
+CZBIL,Commercial Banks
+CZBILP,Promotor Share
+DDBL,Microfinance
+DDBLPO,Promotor Share
+DHEL,Hydro Power
+DHPL,Hydro Power
+DLBS,Microfinance
+DOLTI,Hydro Power
+DORDI,Hydro Power
+EBL,Commercial Banks
+EBLB2079,Corporate Debenture
+EBLD85,Corporate Debenture
+EBLD86,Corporate Debenture
+EBLD91,Corporate Debenture
+EBLE89,Corporate Debenture
+EBLPO,Promotor Share
+EDBL,Development Bank Limited
+EDBLPO,Promotor Share
+EHPL,Hydro Power
+ELIS,Mutual Fund
+ENL,Investment
+FMDBL,Microfinance
+FMDBLP,Promotor Share
+FOWAD,Microfinance
+FOWADP,Promotor Share
+GBBD85,Corporate Debenture
+GBBL,Development Bank Limited
+GBBLPO,Promotor Share
+GBD80/81,Corporate Debenture
+GBILD84/85,Corporate Debenture
+GBILD86/87,Corporate Debenture
+GBIME,Commercial Banks
+GBIMEB2076,Corporate Debenture
+GBIMEP,Promotor Share
+GBIMESY2,Mutual Fund
+GBLBS,Microfinance
+GBLBSP,Promotor Share
+GCIL,Manufacturing And Processing
+GFCL,Finance
+GFCLPO,Promotor Share
+GHL,Hydro Power
+GIBF1,Mutual Fund
+GILB,Microfinance
+GILBPO,Promotor Share
+GLBSL,Microfinance
+GLH,Hydro Power
+GLICLP,Promotor Share
+GMFBS,Microfinance
+GMFBSP,Promotor Share
+GMFIL,Finance
+GMFILP,Promotor Share
+GMLI,Life Insurance
+GRDBL,Development Bank Limited
+GRDBLP,Promotor Share
+GSY,Mutual Fund
+GUFL,Finance
+GUFLPO,Promotor Share
+GVL,Hydro Power
+GWFD83,Corporate Debenture
+H8020,Mutual Fund
+HATHY,Investment
+HBL,Commercial Banks
+HBLD83,Corporate Debenture
+HBLD86,Corporate Debenture
+HBLPO,Promotor Share
+HDHPC,Hydro Power
+HDL,Manufacturing And Processing
+HEI,Non-Life Insurance
+HEIP,Promotor Share
+HHL,Hydro Power
+HIDCL,Investment
+HIDCLP,Promotor Share
+HIMSTAR,Hydro Power
+HLBSL,Microfinance
+HLBSLP,Promotor Share
+HLI,Life Insurance
+HLICF,Mutual Fund
+HLIPO,Promotor Share
+HPPL,Hydro Power
+HRL,Others
+HRLP,Promotor Share
+HURJA,Hydro Power
+ICFC,Finance
+ICFCD83,Corporate Debenture
+ICFCD88,Corporate Debenture
+ICFCPO,Promotor Share
+IGI,Non-Life Insurance
+IGIPO,Promotor Share
+IHL,Hydro Power
+ILBS,Microfinance
+ILBSP,Promotor Share
+ILI,Life Insurance
+JBBD87,Corporate Debenture
+JBBL,Development Bank Limited
+JBBLPO,Promotor Share
+JBLB,Microfinance
+JBLBP,Promotor Share
+JFL,Finance
+JFLPO,Promotor Share
+JHAPA,Others
+JOSHI,Hydro Power
+JSLBB,Microfinance
+JSLBBP,Promotor Share
+KBL,Commercial Banks
+KBLD86,Corporate Debenture
+KBLD89,Corporate Debenture
+KBLD90,Corporate Debenture
+KBLPO,Promotor Share
+KBSH,Hydro Power
+KDBY,Mutual Fund
+KDL,Hotels And Tourism
+KEF,Mutual Fund
+KKHC,Hydro Power
+KLBSLP,Promotor Share
+KMCDB,Microfinance
+KMCDBP,Promotor Share
+KPCL,Hydro Power
+KPCLPO,Promotor Share
+KRBLPO,Promotor Share
+KSBBL,Development Bank Limited
+KSBBLD87,Corporate Debenture
+KSBBLP,Promotor Share
+KSLY,Mutual Fund
+KSY,Mutual Fund
+LBBL,Development Bank Limited
+LBBLD89,Corporate Debenture
+LBBLPO,Promotor Share
+LBLD86,Corporate Debenture
+LBLD88,Corporate Debenture
+LBLPO,Promotor Share
+LEC,Hydro Power
+LICN,Life Insurance
+LICNPO,Promotor Share
+LLBS,Microfinance
+LLBSPO,Promotor Share
+LSL,Commercial Banks
+LSLPO,Promotor Share
+LUK,Mutual Fund
+LVF2,Mutual Fund
+MABEL,Hydro Power
+MAKAR,Hydro Power
+MANDU,Hydro Power
+MATRI,Microfinance
+MATRIP,Promotor Share
+MBJC,Hydro Power
+MBL,Commercial Banks
+MBLD2085,Corporate Debenture
+MBLD87,Corporate Debenture
+MBLEF,Mutual Fund
+MBLPO,Promotor Share
+MCHL,Hydro Power
+MDB,Development Bank Limited
+MDBPO,Promotor Share
+MEHL,Hydro Power
+MEL,Hydro Power
+MEN,Hydro Power
+MERO,Microfinance
+MEROPO,Promotor Share
+MFIL,Finance
+MFILPO,Promotor Share
+MFLD85,Corporate Debenture
+MHCL,Hydro Power
+MHL,Hydro Power
+MHNL,Hydro Power
+MKCL,Others
+MKHC,Hydro Power
+MKHL,Hydro Power
+MKJC,Hydro Power
+MLBBL,Microfinance
+MLBBLP,Promotor Share
+MLBL,Development Bank Limited
+MLBLD89,Corporate Debenture
+MLBLPO,Promotor Share
+MLBS,Microfinance
+MLBSL,Microfinance
+MLBSLP,Promotor Share
+MLBSP,Promotor Share
+MMF1,Mutual Fund
+MMFDBP,Promotor Share
+MMKJL,Hydro Power
+MNBBL,Development Bank Limited
+MNBBLP,Promotor Share
+MND84/85,Corporate Debenture
+MNMF1,Mutual Fund
+MPFL,Finance
+MPFLPO,Promotor Share
+MSHL,Hydro Power
+MSLB,Microfinance
+MSLBP,Promotor Share
+NABBC,Development Bank Limited
+NABBCP,Promotor Share
+NABIL,Commercial Banks
+NABILD2089,Corporate Debenture
+NABILD87,Corporate Debenture
+NABILP,Promotor Share
+NADDF,Mutual Fund
+NADEP,Microfinance
+NADEPP,Promotor Share
+NBBD2085,Corporate Debenture
+NBF2,Mutual Fund
+NBF3,Mutual Fund
+NBL,Commercial Banks
+NBLD82,Corporate Debenture
+NBLD85,Corporate Debenture
+NBLD87,Corporate Debenture
+NBR2087,Corporate Debenture
+NCCD86,Corporate Debenture
+NESDO,Microfinance
+NESDOP,Promotor Share
+NFCF,Mutual Fund
+NFS,Finance
+NFSPO,Promotor Share
+NGPL,Hydro Power
+NHDL,Hydro Power
+NHPC,Hydro Power
+NI31,Mutual Fund
+NIBD2082,Corporate Debenture
+NIBD2084,Corporate Debenture
+NIBD84,Corporate Debenture
+NIBLGF,Mutual Fund
+NIBLSF,Mutual Fund
+NIBLSTF,Mutual Fund
+NIBSF2,Mutual Fund
+NICA,Commercial Banks
+NICAD2091,Corporate Debenture
+NICAD85/86,Corporate Debenture
+NICAP,Promotor Share
+NICBF,Mutual Fund
+NICD83/84,Corporate Debenture
+NICD88,Corporate Debenture
+NICFC,Mutual Fund
+NICGF2,Mutual Fund
+NICL,Non-Life Insurance
+NICLBSL,Microfinance
+NICLBSLP,Promotor Share
+NICLPO,Promotor Share
+NICSF,Mutual Fund
+NIFRA,Investment
+NIFRAGED,Corporate Debenture
+NIFRAP,Promotor Share
+NIFRAUR85/86,Corporate Debenture
+NIL,Non-Life Insurance
+NILPO,Promotor Share
+NIMB,Commercial Banks
+NIMBD90,Corporate Debenture
+NIMBPO,Promotor Share
+NLBBLP,Promotor Share
+NLG,Non-Life Insurance
+NLGPO,Promotor Share
+NLIC,Life Insurance
+NLICL,Life Insurance
+NLICLP,Promotor Share
+NLO,Manufacturing And Processing
+NMB,Commercial Banks
+NMB50,Mutual Fund
+NMBD2085,Corporate Debenture
+NMBD87/88,Corporate Debenture
+NMBD89/90,Corporate Debenture
+NMBHF2,Mutual Fund
+NMBMF,Microfinance
+NMBMFP,Promotor Share
+NMBPO,Promotor Share
+NMBSBFE,Mutual Fund
+NMBUR93/94,Corporate Debenture
+NMFBS,Microfinance
+NMFBSP,Promotor Share
+NMIC,Non-Life Insurance
+NMICP,Promotor Share
+NMLBBL,Microfinance
+NMLBBLP,Promotor Share
+NRBBR2067GA,Government Bond
+NRBBR2067KA,Government Bond
+NRBBR2067KHA,Government Bond
+NRBBR2069,Government Bond
+NRBBR2071KA,Government Bond
+NRBBR2071KHA,Government Bond
+NRBBR2072,Government Bond
+NRBBR2072KA,Government Bond
+NRBBR2073 KA,Government Bond
+NRBBR2075,Government Bond
+NRBBR2075KA,Government Bond
+NRBBR2076,Government Bond
+NRBBR2076GA,Government Bond
+NRBBR2076KA,Government Bond
+NRBBR2076KHA,Government Bond
+NRBBR2083GHA,Government Bond
+NRBBR2085GHA,Government Bond
+NRIC,Others
+NRICP,Promotor Share
+NRM,Others
+NRN,Investment
+NSIF2,Mutual Fund
+NTC,Others
+NUBL,Microfinance
+NUBLPO,Promotor Share
+NWCL,Others
+NYADI,Hydro Power
+OHL,Hotels And Tourism
+OMPL,Manufacturing And Processing
+PBD84,Corporate Debenture
+PBD85,Corporate Debenture
+PBD88,Corporate Debenture
+PBLD84,Corporate Debenture
+PBLD86,Corporate Debenture
+PBLD87,Corporate Debenture
+PCBL,Commercial Banks
+PCBLP,Promotor Share
+PFL,Finance
+PFLPO,Promotor Share
+PHCL,Hydro Power
+PMHPL,Hydro Power
+PMLI,Life Insurance
+PMLIP,Promotor Share
+PPCL,Hydro Power
+PPL,Hydro Power
+PRIN,Non-Life Insurance
+PRINPO,Promotor Share
+PROFL,Finance
+PROFLP,Promotor Share
+PRSF,Mutual Fund
+PRVU,Commercial Banks
+PRVUPO,Promotor Share
+PSF,Mutual Fund
+PSIS,Mutual Fund
+PURE,Others
+RADHI,Hydro Power
+RAWA,Hydro Power
+RBBD2088,Corporate Debenture
+RBBD83,Corporate Debenture
+RBBF40,Mutual Fund
+RBCL,Non-Life Insurance
+RBCLPO,Promotor Share
+RFPL,Hydro Power
+RHGCL,Hydro Power
+RHPL,Hydro Power
+RIDI,Hydro Power
+RLFL,Finance
+RLFLPO,Promotor Share
+RMF1,Mutual Fund
+RMF2,Mutual Fund
+RNLI,Life Insurance
+RNLIP,Promotor Share
+RSDC,Microfinance
+RSDCP,Promotor Share
+RSML,Manufacturing And Processing
+RSY,Mutual Fund
+RURU,Hydro Power
+SABBL,Development Bank Limited
+SABBLP,Promotor Share
+SADBL,Development Bank Limited
+SADBLP,Promotor Share
+SAEF,Mutual Fund
+SAGAR,Manufacturing And Processing
+SAGF,Mutual Fund
+SAHAS,Hydro Power
+SAIL,Manufacturing And Processing
+SALICO,Non-Life Insurance
+SALICOPO,Promotor Share
+SAMAJ,Microfinance
+SAND2085,Corporate Debenture
+SANIMA,Commercial Banks
+SANVI,Hydro Power
+SAPDBL,Development Bank Limited
+SAPDBLP,Promotor Share
+SARBTM,Manufacturing And Processing
+SBCF,Mutual Fund
+SBD87,Corporate Debenture
+SBD89,Corporate Debenture
+SBI,Commercial Banks
+SBIB2079,Corporate Debenture
+SBIBD86,Corporate Debenture
+SBID2090,Corporate Debenture
+SBID83,Corporate Debenture
+SBID89,Corporate Debenture
+SBIPO,Promotor Share
+SBL,Commercial Banks
+SBLB2076,Corporate Debenture
+SBLD2091,Corporate Debenture
+SBLD83,Corporate Debenture
+SBLD84,Corporate Debenture
+SBLD89,Corporate Debenture
+SBLPO,Promotor Share
+SCB,Commercial Banks
+SCBD,Corporate Debenture
+SCBPO,Promotor Share
+SDBD87,Corporate Debenture
+SEF,Mutual Fund
+SFCL,Finance
+SFCLP,Promotor Share
+SFEF,Mutual Fund
+SFF,Mutual Fund
+SFMF,Mutual Fund
+SGHC,Hydro Power
+SGIC,Non-Life Insurance
+SGICP,Promotor Share
+SHEL,Hydro Power
+SHINE,Development Bank Limited
+SHINED,Corporate Debenture
+SHINEP,Promotor Share
+SHIVM,Manufacturing And Processing
+SHL,Hotels And Tourism
+SHLB,Microfinance
+SHPC,Hydro Power
+SICL,Non-Life Insurance
+SICLPO,Promotor Share
+SIFC,Finance
+SIFCPO,Promotor Share
+SIGS2,Mutual Fund
+SIGS3,Mutual Fund
+SIKLES,Hydro Power
+SINDU,Development Bank Limited
+SINDUP,Promotor Share
+SJCL,Hydro Power
+SJLIC,Life Insurance
+SJLICP,Promotor Share
+SKBBL,Microfinance
+SKBBLP,Promotor Share
+SLBBL,Microfinance
+SLBBLP,Promotor Share
+SLBSL,Microfinance
+SLBSLPO,Promotor Share
+SLCF,Mutual Fund
+SLICLP,Promotor Share
+SLK,Mutual Fund
+SMATA,Microfinance
+SMATAP,Promotor Share
+SMB,Microfinance
+SMBPO,Promotor Share
+SMFBS,Microfinance
+SMFBSP,Promotor Share
+SMFDBP,Promotor Share
+SMH,Hydro Power
+SMHL,Hydro Power
+SMJC,Hydro Power
+SMPDA,Microfinance
+SMPDAP,Promotor Share
+SNLI,Life Insurance
+SNLIP,Promotor Share
+SNMAPO,Promotor Share
+SONA,Manufacturing And Processing
+SPC,Hydro Power
+SPDL,Hydro Power
+SPHL,Hydro Power
+SPIL,Non-Life Insurance
+SPILPO,Promotor Share
+SPL,Hydro Power
+SRBLD83,Corporate Debenture
+SRBLPO,Promotor Share
+SRD80,Corporate Debenture
+SRLI,Life Insurance
+SRLIP,Promotor Share
+SSHL,Hydro Power
+SSIS,Mutual Fund
+STC,Tradings
+SWASTIK,Microfinance
+SWASTIKP,Promotor Share
+SWBBL,Microfinance
+SWBBLP,Promotor Share
+SWMF,Microfinance
+SWMFPO,Promotor Share
+SYPNL,Manufacturing And Processing
+TAMOR,Hydro Power
+TBBLP,Promotor Share
+TPC,Hydro Power
+TRH,Hotels And Tourism
+TSHL,Hydro Power
+TTL,Others
+TVCL,Hydro Power
+UAIL,Non-Life Insurance
+UAILPO,Promotor Share
+UFLPO,Promotor Share
+UHEWA,Hydro Power
+ULBSL,Microfinance
+ULBSLPO,Promotor Share
+ULHC,Hydro Power
+UMHL,Hydro Power
+UMRH,Hydro Power
+UNHPL,Hydro Power
+UNL,Manufacturing And Processing
+UNLB,Microfinance
+UNLBP,Promotor Share
+UPCL,Hydro Power
+UPPER,Hydro Power
+USHEC,Hydro Power
+USHL,Hydro Power
+USLB,Microfinance
+USLBP,Promotor Share
+VLBS,Microfinance
+VLBSPO,Promotor Share
+VLUCL,Hydro Power
+WNLB,Microfinance
+WNLBP,Promotor Share

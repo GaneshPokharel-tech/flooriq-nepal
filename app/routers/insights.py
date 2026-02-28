@@ -1,8 +1,10 @@
 from typing import Optional
 
 from decimal import Decimal
+from pathlib import Path
 
 import json
+import csv
 
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +12,28 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.dependencies import db_conn, redis_client
 
 router = APIRouter(tags=["insights"])
+
+SYMBOL_SECTOR_CSV = Path("data/meta/symbol_sector.csv")
+_SYMBOL_SECTOR_MAP = None
+
+def _load_symbol_sector_map() -> dict:
+    global _SYMBOL_SECTOR_MAP
+    if _SYMBOL_SECTOR_MAP is not None:
+        return _SYMBOL_SECTOR_MAP
+    m = {}
+    try:
+        if SYMBOL_SECTOR_CSV.exists():
+            with SYMBOL_SECTOR_CSV.open("r", newline="", encoding="utf-8") as f:
+                r = csv.DictReader(f)
+                for row in r:
+                    sym = (row.get("symbol") or "").strip().upper()
+                    sec = (row.get("sector") or "Unknown").strip()
+                    if sym:
+                        m[sym] = sec
+    except Exception:
+        m = {}
+    _SYMBOL_SECTOR_MAP = m
+    return _SYMBOL_SECTOR_MAP
 
 
 CACHE_TTL_SECONDS = 60
@@ -443,5 +467,106 @@ async def top_symbols(
 
     data = [{"business_date": r[0], "stock_symbol": r[1], metric: conv(r[2])} for r in rows]
     payload = {"disclaimer": DISCLAIMER, "count": len(data), "data": data}
+    await _cache_set(redis, cache_key, payload)
+    return payload
+
+@router.get("/insights/sectors/rotation")
+async def sector_rotation(
+    business_date: Optional[str] = None,
+    limit: int = 10,
+    conn: psycopg.Connection = Depends(db_conn),
+    redis=Depends(redis_client),
+):
+    """
+    Sector rotation (turnover) signal:
+      - aggregates total traded amount per sector for the day
+      - compares vs previous trading day
+    Note: market-wide net amount is ~0, so we use turnover + change.
+    """
+    if limit < 1:
+        limit = 1
+    if limit > 50:
+        limit = 50
+
+    cache_key = f"flooriq:insights:sectors:rotation:{business_date or 'latest'}:limit:{limit}"
+    cached = await _cache_get(redis, cache_key)
+    if cached is not None:
+        return cached
+
+    sector_map = _load_symbol_sector_map()
+
+    with conn.cursor() as cur:
+        if business_date is None:
+            cur.execute("SELECT MAX(business_date) FROM public.trades")
+            business_date = cur.fetchone()[0]
+            if business_date is None:
+                raise HTTPException(status_code=404, detail="No trades found yet.")
+
+        cur.execute("SELECT MAX(business_date) FROM public.trades WHERE business_date < %s", (business_date,))
+        prev_date = cur.fetchone()[0]
+
+        # totals by symbol for target date
+        cur.execute(
+            """
+            SELECT stock_symbol, SUM(amount)::numeric AS amt
+            FROM public.trades
+            WHERE business_date=%s
+            GROUP BY stock_symbol
+            """,
+            (business_date,),
+        )
+        rows_today = cur.fetchall()
+
+        rows_prev = []
+        if prev_date is not None:
+            cur.execute(
+                """
+                SELECT stock_symbol, SUM(amount)::numeric AS amt
+                FROM public.trades
+                WHERE business_date=%s
+                GROUP BY stock_symbol
+                """,
+                (prev_date,),
+            )
+            rows_prev = cur.fetchall()
+
+    def agg(rows):
+        out = {}
+        for sym, amt in rows:
+            sym = (sym or "").strip().upper()
+            sector = sector_map.get(sym, "Unknown")
+            out[sector] = out.get(sector, 0.0) + float(amt or 0)
+        return out
+
+    today = agg(rows_today)
+    prev = agg(rows_prev) if rows_prev else {}
+
+    items = []
+    for sector, amt in today.items():
+        prev_amt = prev.get(sector, 0.0)
+        delta = amt - prev_amt
+        pct = (delta / prev_amt * 100.0) if prev_amt else None
+        items.append(
+            {
+                "sector": sector,
+                "total_amount": amt,
+                "prev_total_amount": prev_amt,
+                "delta_amount": delta,
+                "delta_pct": None if pct is None else round(pct, 4),
+            }
+        )
+
+    items.sort(key=lambda x: x["total_amount"], reverse=True)
+    data = items[:limit]
+
+    payload = {
+        "disclaimer": DISCLAIMER,
+        "business_date": str(business_date),
+        "prev_business_date": (None if prev_date is None else str(prev_date)),
+        "count": len(data),
+        "data": data,
+        "mapping_source": str(SYMBOL_SECTOR_CSV),
+        "mapping_coverage": {"symbols_mapped": len(sector_map)},
+    }
     await _cache_set(redis, cache_key, payload)
     return payload
