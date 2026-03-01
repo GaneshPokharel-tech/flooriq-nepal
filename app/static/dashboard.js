@@ -267,6 +267,7 @@
   qs("loadTopSymbolsBtn").addEventListener("click", loadTopSymbols);
 
   // Small quality-of-life: Enter triggers broker load
+  qs("brokerId").addEventListener("change", () => { if (qs("brokerId").value) loadBroker(); });
   qs("brokerId").addEventListener("keydown", (e) => { if (e.key === "Enter") loadBroker(); });
   qs("brokerDate").addEventListener("keydown", (e) => { if (e.key === "Enter") loadBroker(); });
   qs("sectorDate").addEventListener("keydown", (e) => { if (e.key === "Enter") loadSectors(); });

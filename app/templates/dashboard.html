@@ -57,7 +57,13 @@
         <div class="row">
           <div>
             <label for="brokerId">Broker ID</label>
-            <input id="brokerId" type="number" min="1" placeholder="e.g., 58" />
+            <select id="brokerId">
+              <option value="">Select broker</option>
+              {% for bid in broker_ids %}
+              <option value="{{ bid }}">{{ bid }}</option>
+              {% endfor %}
+            </select>
+            <div class="muted" style="margin-top:6px;">Latest: {{ latest_business_date or "—" }}</div>
           </div>
           <div>
             <label for="brokerDate">Business date (optional)</label>
