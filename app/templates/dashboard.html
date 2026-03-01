@@ -22,7 +22,7 @@
     button.secondary { background:#fff; color:#111; }
     button:disabled { opacity:0.6; cursor:not-allowed; }
     h2 { margin: 0 0 12px; font-size:14px; letter-spacing:0.2px; text-transform: uppercase; color:#444; }
-    .kpis { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+    .kpis { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
     .kpi { border:1px solid #eef0f2; border-radius:10px; padding:10px; background:#fafbfc; }
     .kpi .v { font-size:18px; font-weight:650; margin-top:4px; }
     .kpi .k { font-size:12px; color:#666; }
@@ -77,10 +77,12 @@
             <input id="brokerDate" type="text" placeholder="YYYY-MM-DD (leave empty = latest)" />
           </div>
           <button id="loadBrokerBtn">Load</button>
+          <button id="copyLinkBtn" class="secondary">Copy link</button>
           <button id="clearBrokerBtn" class="secondary">Clear</button>
         </div>
 
         <div id="brokerErr" class="error" style="margin-top:10px; display:none;"></div>
+        <div id="brokerMsg" class="muted" style="margin-top:10px; display:none;"></div>
 
         <div style="margin-top:12px" class="kpis">
           <div class="kpi">
@@ -94,6 +96,27 @@
           <div class="kpi">
             <div class="k">Top1 share</div>
             <div class="v" id="brokerTop1">—</div>
+          </div>
+
+          <div class="kpi">
+            <div class="k">Net amount</div>
+            <div class="v" id="brokerNetAmount">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Buy amount</div>
+            <div class="v" id="brokerBuyAmount">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Sell amount</div>
+            <div class="v" id="brokerSellAmount">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Trades (buy)</div>
+            <div class="v" id="brokerTradesBuy">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Trades (sell)</div>
+            <div class="v" id="brokerTradesSell">—</div>
           </div>
         </div>
 

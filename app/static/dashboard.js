@@ -47,7 +47,7 @@
     try { data = text ? JSON.parse(text) : null; } catch (_) {}
     if (!res.ok) {
       const detail = (data && (data.detail || data.message)) ? (data.detail || data.message) : text;
-      throw new Error(`HTTP ${res.status}: ${detail}`);
+      throw new Error(detail || ("HTTP " + res.status));
     }
     return data;
   }
@@ -59,6 +59,8 @@
 
     const errEl = qs("brokerErr");
     setErr(errEl, "");
+    const msgEl = qs("brokerMsg");
+    if (msgEl) { msgEl.style.display = "none"; msgEl.textContent = ""; }
 
     if (!brokerId || brokerId < 1) {
       setErr(errEl, "Broker ID चाहिन्छ (positive integer).");
@@ -77,7 +79,19 @@
 
       qs("brokerRisk").innerHTML = pillRisk(risk);
       qs("brokerHHI").textContent = (hhi == null) ? "—" : String(hhi);
-      qs("brokerTop1").textContent = (top1 == null) ? "—" : `${top1}%`;
+      qs("brokerTop1").textContent = (top1 == null) ? "—" : `%`;
+
+      const sum = payload.summary || {};
+      const netAmt = sum.net_amount;
+      const buyAmt = sum.total_buy_amount;
+      const sellAmt = sum.total_sell_amount;
+      const tBuy = sum.trades_buy_count;
+      const tSell = sum.trades_sell_count;
+      qs("brokerNetAmount").textContent = fmtNum(netAmt);
+      qs("brokerBuyAmount").textContent = fmtNum(buyAmt);
+      qs("brokerSellAmount").textContent = fmtNum(sellAmt);
+      qs("brokerTradesBuy").textContent = fmtNum(tBuy);
+      qs("brokerTradesSell").textContent = fmtNum(tSell);
 
       const topSymbolsBody = qs("brokerTopSymbols");
       topSymbolsBody.innerHTML = "";
@@ -146,6 +160,11 @@
     qs("brokerRisk").textContent = "—";
     qs("brokerHHI").textContent = "—";
     qs("brokerTop1").textContent = "—";
+    qs("brokerNetAmount").textContent = "—";
+    qs("brokerBuyAmount").textContent = "—";
+    qs("brokerSellAmount").textContent = "—";
+    qs("brokerTradesBuy").textContent = "—";
+    qs("brokerTradesSell").textContent = "—";
     qs("brokerTopSymbols").innerHTML = "";
     qs("brokerAnomalies").innerHTML = "";
     qs("brokerSectorFlows").innerHTML = "";
@@ -317,7 +336,7 @@
     try { data = text ? JSON.parse(text) : null; } catch (_) {}
     if (!res.ok) {
       const detail = (data && (data.detail || data.message)) ? (data.detail || data.message) : text;
-      throw new Error(`HTTP ${res.status}: ${detail}`);
+      throw new Error(detail || ("HTTP " + res.status));
     }
     return data;
   }
@@ -411,4 +430,59 @@
     // If not found, no-op (broker not loaded yet or sector not in top 10)
     if (!hit) return;
   });
+})();
+
+// --- Copy link button (appended) ---
+(function attachCopyLink() {
+  const btn = document.getElementById("copyLinkBtn");
+  if (!btn) return;
+
+  function qs(id) { return document.getElementById(id); }
+  function showMsg(text) {
+    const m = qs("brokerMsg");
+    if (m) { m.style.display = "block"; m.textContent = text; }
+  }
+
+  btn.addEventListener("click", function () {
+    const bidEl = qs("brokerId");
+    const dateEl = qs("brokerDate");
+    const bid = bidEl ? bidEl.value : "";
+    const bd = dateEl ? (dateEl.value || "").trim() : "";
+
+    const u = new URL("/dashboard", window.location.origin);
+    if (bid) u.searchParams.set("broker_id", String(bid));
+    if (bd) u.searchParams.set("business_date", bd);
+    const link = u.toString();
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(function () {
+        showMsg("Copied: " + link);
+      }).catch(function () {
+        showMsg("Copy failed. Link: " + link);
+      });
+    } else {
+      showMsg("Link: " + link);
+    }
+  });
+})();
+
+// --- Auto-load from query params (appended) ---
+(function autoLoadFromQuery() {
+  try {
+    const u = new URL(window.location.href);
+    const bid = u.searchParams.get("broker_id");
+    const bd = u.searchParams.get("business_date");
+
+    const bidEl = document.getElementById("brokerId");
+    const bdEl = document.getElementById("brokerDate");
+
+    if (bidEl && bid) bidEl.value = bid;
+    if (bdEl && bd) bdEl.value = bd;
+
+    // Trigger load if broker_id present
+    if (bid) {
+      const btn = document.getElementById("loadBrokerBtn");
+      if (btn) btn.click();
+    }
+  } catch (e) {}
 })();
