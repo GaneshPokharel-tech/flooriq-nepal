@@ -486,3 +486,93 @@
     }
   } catch (e) {}
 })();
+
+// --- Copy link button v2 (share more state) ---
+(function attachCopyLinkV2() {
+  var btn0 = document.getElementById("copyLinkBtn");
+  if (!btn0) return;
+
+  // Remove any previously attached listeners by cloning
+  var btn = btn0.cloneNode(true);
+  btn0.parentNode.replaceChild(btn, btn0);
+
+  function qs(id) { return document.getElementById(id); }
+  function showMsg(text) {
+    var m = qs("brokerMsg");
+    if (m) { m.style.display = "block"; m.textContent = text; }
+  }
+
+  btn.addEventListener("click", function () {
+    var bid = (qs("brokerId") && qs("brokerId").value) ? qs("brokerId").value : "";
+    var bd = (qs("brokerDate") && qs("brokerDate").value) ? (qs("brokerDate").value || "").trim() : "";
+
+    var sectorDate = (qs("sectorDate") && qs("sectorDate").value) ? (qs("sectorDate").value || "").trim() : "";
+    var tbm = (qs("topBrokersMetric") && qs("topBrokersMetric").value) ? qs("topBrokersMetric").value : "";
+    var tsm = (qs("topSymbolsMetric") && qs("topSymbolsMetric").value) ? qs("topSymbolsMetric").value : "";
+
+    var u = new URL("/dashboard", window.location.origin);
+    if (bid) u.searchParams.set("broker_id", String(bid));
+    if (bd) u.searchParams.set("business_date", bd);
+    if (sectorDate) u.searchParams.set("sector_date", sectorDate);
+    if (tbm) u.searchParams.set("top_brokers_metric", tbm);
+    if (tsm) u.searchParams.set("top_symbols_metric", tsm);
+
+    var link = u.toString();
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(function () {
+        showMsg("Copied: " + link);
+      }).catch(function () {
+        showMsg("Copy failed. Link: " + link);
+      });
+    } else {
+      showMsg("Link: " + link);
+    }
+  });
+})();
+
+// --- Auto-load from query params v2 (shareable state) ---
+(function autoLoadFromQueryV2() {
+  try {
+    var u = new URL(window.location.href);
+
+    var bid = u.searchParams.get("broker_id");
+    var bd = u.searchParams.get("business_date");
+    var sectorDate = u.searchParams.get("sector_date");
+    var tbm = u.searchParams.get("top_brokers_metric");
+    var tsm = u.searchParams.get("top_symbols_metric");
+
+    var bidEl = document.getElementById("brokerId");
+    var bdEl = document.getElementById("brokerDate");
+    var sectorEl = document.getElementById("sectorDate");
+    var tbmEl = document.getElementById("topBrokersMetric");
+    var tsmEl = document.getElementById("topSymbolsMetric");
+
+    if (bidEl && bid) bidEl.value = bid;
+    if (bdEl && bd) bdEl.value = bd;
+
+    if (sectorEl && sectorDate) sectorEl.value = sectorDate;
+    if (tbmEl && tbm) tbmEl.value = tbm;
+    if (tsmEl && tsm) tsmEl.value = tsm;
+
+    // Reload widgets if params present
+    if (sectorDate) {
+      var sbtn = document.getElementById("loadSectorsBtn");
+      if (sbtn) sbtn.click();
+    }
+    if (tbm) {
+      var bbtn = document.getElementById("loadTopBrokersBtn");
+      if (bbtn) bbtn.click();
+    }
+    if (tsm) {
+      var symbtn = document.getElementById("loadTopSymbolsBtn");
+      if (symbtn) symbtn.click();
+    }
+
+    // Load broker last (so the right side is already populated)
+    if (bid) {
+      var btn = document.getElementById("loadBrokerBtn");
+      if (btn) btn.click();
+    }
+  } catch (e) {}
+})();
