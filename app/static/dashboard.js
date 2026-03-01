@@ -576,3 +576,60 @@
     }
   } catch (e) {}
 })();
+
+// --- UX polish: auto-sync URL + auto-hide messages ---
+(function urlSyncAndMsgAutoHide() {
+  function qs(id) { return document.getElementById(id); }
+
+  function currentStateParams() {
+    var bid = (qs("brokerId") && qs("brokerId").value) ? qs("brokerId").value : "";
+    var bd = (qs("brokerDate") && qs("brokerDate").value) ? (qs("brokerDate").value || "").trim() : "";
+    var sectorDate = (qs("sectorDate") && qs("sectorDate").value) ? (qs("sectorDate").value || "").trim() : "";
+    var tbm = (qs("topBrokersMetric") && qs("topBrokersMetric").value) ? qs("topBrokersMetric").value : "";
+    var tsm = (qs("topSymbolsMetric") && qs("topSymbolsMetric").value) ? qs("topSymbolsMetric").value : "";
+    return { bid: bid, bd: bd, sectorDate: sectorDate, tbm: tbm, tsm: tsm };
+  }
+
+  function syncUrl() {
+    try {
+      var st = currentStateParams();
+      var u = new URL("/dashboard", window.location.origin);
+      if (st.bid) u.searchParams.set("broker_id", String(st.bid));
+      if (st.bd) u.searchParams.set("business_date", st.bd);
+      if (st.sectorDate) u.searchParams.set("sector_date", st.sectorDate);
+      if (st.tbm) u.searchParams.set("top_brokers_metric", st.tbm);
+      if (st.tsm) u.searchParams.set("top_symbols_metric", st.tsm);
+      window.history.replaceState({}, "", u.toString());
+    } catch (e) {}
+  }
+
+  // Sync on changes
+  ["brokerId","brokerDate","sectorDate","topBrokersMetric","topSymbolsMetric"].forEach(function (id) {
+    var el = qs(id);
+    if (!el) return;
+    el.addEventListener("change", syncUrl);
+    el.addEventListener("input", function () {
+      // keep it lightweight: only sync for text/date inputs while typing
+      if (id === "brokerDate" || id === "sectorDate") syncUrl();
+    });
+  });
+
+  // Auto-hide brokerMsg after 5s whenever it changes
+  var msg = qs("brokerMsg");
+  if (msg && window.MutationObserver) {
+    var t = null;
+    var obs = new MutationObserver(function () {
+      if (t) clearTimeout(t);
+      if ((msg.textContent || "").trim().length === 0) return;
+      msg.style.display = "block";
+      t = setTimeout(function () {
+        msg.style.display = "none";
+        msg.textContent = "";
+      }, 5000);
+    });
+    obs.observe(msg, { childList: true, characterData: true, subtree: true });
+  }
+
+  // Initial sync
+  syncUrl();
+})();
