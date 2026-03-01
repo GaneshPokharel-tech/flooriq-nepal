@@ -38,6 +38,13 @@
     .split { display:grid; grid-template-columns: 1fr; gap:12px; }
     @media (min-width: 980px) { .split { grid-template-columns: 1fr 1fr; } }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    tbody tr:hover { background:#f7f9fc; }
+    tbody.clickable tr { cursor:pointer; }
+    tbody.clickable tr:hover { background:#eef6ff; }
+    .badge { display:inline-block; padding:3px 8px; border-radius:999px; font-size:12px; border:1px solid #d6d9dd; background:#fff; }
+    .badge.blue { border-color:#b7d7ff; background:#eef6ff; }
+    .row-selected { background:#fff7e6 !important; font-weight:650; }
+
   </style>
 </head>
 <body>
@@ -133,9 +140,9 @@
           <div id="sectorErr" class="error" style="margin-top:10px; display:none;"></div>
           <table style="margin-top:10px;">
             <thead><tr><th>Sector</th><th>Turnover</th><th>Δ turnover</th></tr></thead>
-            <tbody id="sectorRotation"></tbody>
+            <tbody id="sectorRotation" class="clickable"></tbody>
           </table>
-          <div class="muted" id="sectorMeta" style="margin-top:8px"></div>
+          <div class="muted" style="margin-top:8px"><span class="badge blue" id="selectedSector" style="display:none;"></span> <span id="sectorMeta"></span></div>
         </div>
 
         <div class="card" style="border-radius:12px; border-color:#eef0f2; box-shadow:none; margin-bottom:12px;">

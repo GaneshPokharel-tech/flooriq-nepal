@@ -372,8 +372,7 @@
 
   function clearHighlights() {
     flowsTbl.querySelectorAll("tr").forEach(tr => {
-      tr.style.background = "";
-      tr.style.fontWeight = "";
+      tr.classList.remove("row-selected");
     });
   }
 
@@ -386,6 +385,12 @@
     const sector = (td0.textContent || "").trim();
     if (!sector) return;
 
+    const badge = document.getElementById("selectedSector");
+    if (badge) {
+      badge.style.display = "inline-block";
+      badge.textContent = "Selected sector: " + sector;
+    }
+
     clearHighlights();
 
     // Highlight matching sector row in broker flows, if broker data already loaded
@@ -394,8 +399,7 @@
       const c0 = row.querySelector("td");
       const name = (c0 && c0.textContent ? c0.textContent : "").trim();
       if (name === sector) {
-        row.style.background = "#fff7e6";
-        row.style.fontWeight = "650";
+        row.classList.add("row-selected");
         hit = row;
       }
     });
