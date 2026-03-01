@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FloorIQ Nepal Dashboard (Demo)</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background:#f6f7f9; color:#111; }
+    header { padding: 18px 20px; background:#fff; border-bottom:1px solid #e6e8eb; position: sticky; top:0; }
+    header h1 { margin:0; font-size:18px; }
+    header .sub { margin-top:6px; font-size:13px; color:#555; }
+    main { max-width: 1200px; margin: 0 auto; padding: 18px 20px 40px; }
+    .grid { display:grid; grid-template-columns: 1fr; gap: 14px; }
+    @media (min-width: 980px) { .grid { grid-template-columns: 1.1fr 0.9fr; } }
+    .card { background:#fff; border:1px solid #e6e8eb; border-radius:10px; padding:14px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+    label { font-size:12px; color:#555; display:block; margin-bottom:6px; }
+    input, select, button { font: inherit; }
+    input, select { padding:10px 10px; border:1px solid #d6d9dd; border-radius:8px; min-width: 180px; background:#fff; }
+    button { padding:10px 12px; border:1px solid #d6d9dd; border-radius:8px; background:#111; color:#fff; cursor:pointer; }
+    button.secondary { background:#fff; color:#111; }
+    button:disabled { opacity:0.6; cursor:not-allowed; }
+    h2 { margin: 0 0 12px; font-size:14px; letter-spacing:0.2px; text-transform: uppercase; color:#444; }
+    .kpis { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+    .kpi { border:1px solid #eef0f2; border-radius:10px; padding:10px; background:#fafbfc; }
+    .kpi .v { font-size:18px; font-weight:650; margin-top:4px; }
+    .kpi .k { font-size:12px; color:#666; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { text-align:left; padding:8px 6px; border-bottom:1px solid #eef0f2; font-size:13px; }
+    th { font-size:12px; color:#666; text-transform: uppercase; letter-spacing:0.2px; }
+    .pill { display:inline-block; padding:3px 8px; border-radius:999px; font-size:12px; border:1px solid #e6e8eb; background:#fff; }
+    .pill.low { border-color:#bde5c8; background:#eefaf2; }
+    .pill.medium { border-color:#ffe2a6; background:#fff7e6; }
+    .pill.high { border-color:#ffb3b3; background:#fff0f0; }
+    .muted { color:#666; font-size:12px; }
+    .error { color:#b00020; font-size:13px; white-space: pre-wrap; }
+    .split { display:grid; grid-template-columns: 1fr; gap:12px; }
+    @media (min-width: 980px) { .split { grid-template-columns: 1fr 1fr; } }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>FloorIQ Nepal Dashboard (Demo)</h1>
+    <div class="sub">
+      Simple front-end consuming existing API endpoints. No trading advice.
+      <span class="muted">API base: <span class="mono" id="apiBase"></span></span>
+    </div>
+  </header>
+
+  <main>
+    <div class="grid">
+      <section class="card">
+        <h2>Broker Insights</h2>
+
+        <div class="row">
+          <div>
+            <label for="brokerId">Broker ID</label>
+            <input id="brokerId" type="number" min="1" placeholder="e.g., 58" />
+          </div>
+          <div>
+            <label for="brokerDate">Business date (optional)</label>
+            <input id="brokerDate" type="text" placeholder="YYYY-MM-DD (leave empty = latest)" />
+          </div>
+          <button id="loadBrokerBtn">Load</button>
+          <button id="clearBrokerBtn" class="secondary">Clear</button>
+        </div>
+
+        <div id="brokerErr" class="error" style="margin-top:10px; display:none;"></div>
+
+        <div style="margin-top:12px" class="kpis">
+          <div class="kpi">
+            <div class="k">Risk</div>
+            <div class="v" id="brokerRisk">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">HHI (buy-side)</div>
+            <div class="v" id="brokerHHI">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Top1 share</div>
+            <div class="v" id="brokerTop1">—</div>
+          </div>
+        </div>
+
+        <div class="split" style="margin-top:14px">
+          <div class="card" style="border-radius:12px; border-color:#eef0f2; box-shadow:none;">
+            <h2 style="margin-bottom:10px">Top symbols (buy)</h2>
+            <table>
+              <thead><tr><th>Symbol</th><th>Amount</th><th>Share %</th></tr></thead>
+              <tbody id="brokerTopSymbols"></tbody>
+            </table>
+            <div class="muted" id="brokerMeta" style="margin-top:8px"></div>
+          </div>
+
+          <div class="card" style="border-radius:12px; border-color:#eef0f2; box-shadow:none;">
+            <h2 style="margin-bottom:10px">Anomalies</h2>
+            <table>
+              <thead><tr><th>Type</th><th>Score</th><th>Details</th></tr></thead>
+              <tbody id="brokerAnomalies"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px; border-radius:12px; border-color:#eef0f2; box-shadow:none;">
+          <h2 style="margin-bottom:10px">Sector flows (broker)</h2>
+          <table>
+            <thead><tr><th>Sector</th><th>Net</th><th>Prev net</th><th>Δ net</th></tr></thead>
+            <tbody id="brokerSectorFlows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="card">
+        <h2>Market Widgets</h2>
+
+        <div class="card" style="border-radius:12px; border-color:#eef0f2; box-shadow:none; margin-bottom:12px;">
+          <h2 style="margin-bottom:10px">Sector rotation (turnover Δ)</h2>
+          <div class="row" style="align-items:flex-end;">
+            <div>
+              <label for="sectorDate">Business date (optional)</label>
+              <input id="sectorDate" type="text" placeholder="YYYY-MM-DD (empty = latest)" />
+            </div>
+            <button id="loadSectorsBtn">Load</button>
+          </div>
+          <div id="sectorErr" class="error" style="margin-top:10px; display:none;"></div>
+          <table style="margin-top:10px;">
+            <thead><tr><th>Sector</th><th>Turnover</th><th>Δ turnover</th></tr></thead>
+            <tbody id="sectorRotation"></tbody>
+          </table>
+          <div class="muted" id="sectorMeta" style="margin-top:8px"></div>
+        </div>
+
+        <div class="card" style="border-radius:12px; border-color:#eef0f2; box-shadow:none; margin-bottom:12px;">
+          <h2 style="margin-bottom:10px">Top brokers</h2>
+          <div class="row">
+            <div>
+              <label for="topBrokersMetric">Metric</label>
+              <select id="topBrokersMetric">
+                <option value="net_amount">net_amount</option>
+                <option value="total_buy_amount">total_buy_amount</option>
+                <option value="total_sell_amount">total_sell_amount</option>
+                <option value="net_qty">net_qty</option>
+                <option value="trades_buy_count">trades_buy_count</option>
+                <option value="trades_sell_count">trades_sell_count</option>
+              </select>
+            </div>
+            <button id="loadTopBrokersBtn">Load</button>
+          </div>
+          <div id="topBrokersErr" class="error" style="margin-top:10px; display:none;"></div>
+          <table style="margin-top:10px;">
+            <thead><tr><th>Broker</th><th id="topBrokersMetricCol">Value</th></tr></thead>
+            <tbody id="topBrokers"></tbody>
+          </table>
+        </div>
+
+        <div class="card" style="border-radius:12px; border-color:#eef0f2; box-shadow:none;">
+          <h2 style="margin-bottom:10px">Top symbols</h2>
+          <div class="row">
+            <div>
+              <label for="topSymbolsMetric">Metric</label>
+              <select id="topSymbolsMetric">
+                <option value="total_amount">total_amount</option>
+                <option value="total_qty">total_qty</option>
+                <option value="trades_count">trades_count</option>
+                <option value="vwap">vwap</option>
+              </select>
+            </div>
+            <button id="loadTopSymbolsBtn">Load</button>
+          </div>
+          <div id="topSymbolsErr" class="error" style="margin-top:10px; display:none;"></div>
+          <table style="margin-top:10px;">
+            <thead><tr><th>Symbol</th><th id="topSymbolsMetricCol">Value</th></tr></thead>
+            <tbody id="topSymbols"></tbody>
+          </table>
+        </div>
+      </aside>
+    </div>
+
+    <p class="muted" style="margin-top:14px">
+      Note: This is a lightweight demo UI. Data is cached on API side (Redis when enabled).
+    </p>
+  </main>
+
+  <script>
+    // If you later host dashboard separately, set window.FLOORIQ_API_BASE = "https://your-api"
+    window.FLOORIQ_API_BASE = window.FLOORIQ_API_BASE || "";
+    document.getElementById("apiBase").textContent = window.FLOORIQ_API_BASE || "(same origin)";
+  </script>
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>
