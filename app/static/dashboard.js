@@ -246,7 +246,7 @@
         data.forEach(r => {
           body.insertAdjacentHTML("beforeend",
             `<tr>
-              <td class="mono">${r.stock_symbol}</td>
+              <td class="mono"><a href="/insights/symbol/${r.stock_symbol}" target="_blank" rel="noreferrer">${r.stock_symbol}</a></td>
               <td>${fmtNum(r[metric])}</td>
             </tr>`
           );
