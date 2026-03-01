@@ -223,6 +223,72 @@ async def broker_insights(
             (business_date, str(broker_id)),
         )
         arows = cur.fetchall()
+        # 4) Broker sector flows (today vs previous trading day)
+        sector_map = _load_symbol_sector_map()
+
+        cur.execute("SELECT MAX(business_date) FROM public.trades WHERE business_date < %s", (business_date,))
+        prev_date = cur.fetchone()[0]
+
+        def _sector_agg(day):
+            if day is None:
+                return {}
+            # Buy amounts by symbol
+            cur.execute(
+                """
+                SELECT stock_symbol, COALESCE(SUM(amount),0)::numeric AS amt
+                FROM public.trades
+                WHERE business_date=%s AND buyer_member_id=%s
+                GROUP BY stock_symbol
+                """,
+                (day, str(broker_id)),
+            )
+            buys = {(sym or "").strip().upper(): float(amt or 0) for sym, amt in cur.fetchall()}
+
+            # Sell amounts by symbol
+            cur.execute(
+                """
+                SELECT stock_symbol, COALESCE(SUM(amount),0)::numeric AS amt
+                FROM public.trades
+                WHERE business_date=%s AND seller_member_id=%s
+                GROUP BY stock_symbol
+                """,
+                (day, str(broker_id)),
+            )
+            sells = {(sym or "").strip().upper(): float(amt or 0) for sym, amt in cur.fetchall()}
+
+            out = {}
+            all_syms = set(buys.keys()) | set(sells.keys())
+            for sym in all_syms:
+                sec = sector_map.get(sym, "Unknown")
+                b = buys.get(sym, 0.0)
+                se = sells.get(sym, 0.0)
+                rec = out.get(sec, {"buy_amount": 0.0, "sell_amount": 0.0, "net_amount": 0.0})
+                rec["buy_amount"] += b
+                rec["sell_amount"] += se
+                rec["net_amount"] += (b - se)
+                out[sec] = rec
+            return out
+
+        sec_today = _sector_agg(business_date)
+        sec_prev = _sector_agg(prev_date)
+
+        sector_flows = []
+        for sec, v in sec_today.items():
+            pv = sec_prev.get(sec, {"buy_amount": 0.0, "sell_amount": 0.0, "net_amount": 0.0})
+            sector_flows.append(
+                {
+                    "sector": sec,
+                    "buy_amount": round(v["buy_amount"], 4),
+                    "sell_amount": round(v["sell_amount"], 4),
+                    "net_amount": round(v["net_amount"], 4),
+                    "prev_net_amount": round(pv["net_amount"], 4),
+                    "delta_net_amount": round(v["net_amount"] - pv["net_amount"], 4),
+                }
+            )
+
+        # show biggest net movers first
+        sector_flows.sort(key=lambda x: abs(x["net_amount"]), reverse=True)
+        sector_flows = sector_flows[:10]
 
     anomalies = []
     for bd, atype, score, details, created_at in arows:
@@ -240,6 +306,8 @@ async def broker_insights(
         "disclaimer": DISCLAIMER,
         "business_date": str(summary["business_date"]),
         "broker_id": broker_id,
+        "prev_business_date": (None if prev_date is None else str(prev_date)),
+        "sector_flows": sector_flows,
         "summary": {k: (fnum(v) if k not in ("business_date", "updated_at") else str(v)) for k, v in summary.items()},
         "concentration": concentration,
         "anomalies": anomalies,
