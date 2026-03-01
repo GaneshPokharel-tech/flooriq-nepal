@@ -363,3 +363,48 @@
   qs("loadAnomaliesBtn").addEventListener("click", loadAnomalies);
   loadAnomalies().catch(() => {});
 })();
+
+// --- Sector click -> highlight broker sector_flows (appended) ---
+(function attachSectorHighlight() {
+  const sectorTbl = document.getElementById("sectorRotation");
+  const flowsTbl = document.getElementById("brokerSectorFlows");
+  if (!sectorTbl || !flowsTbl) return;
+
+  function clearHighlights() {
+    flowsTbl.querySelectorAll("tr").forEach(tr => {
+      tr.style.background = "";
+      tr.style.fontWeight = "";
+    });
+  }
+
+  sectorTbl.addEventListener("click", (e) => {
+    const tr = e.target && e.target.closest ? e.target.closest("tr") : null;
+    if (!tr) return;
+    const td0 = tr.querySelector("td");
+    if (!td0) return;
+
+    const sector = (td0.textContent || "").trim();
+    if (!sector) return;
+
+    clearHighlights();
+
+    // Highlight matching sector row in broker flows, if broker data already loaded
+    let hit = null;
+    flowsTbl.querySelectorAll("tr").forEach(row => {
+      const c0 = row.querySelector("td");
+      const name = (c0 && c0.textContent ? c0.textContent : "").trim();
+      if (name === sector) {
+        row.style.background = "#fff7e6";
+        row.style.fontWeight = "650";
+        hit = row;
+      }
+    });
+
+    // Scroll to broker flows section for convenience
+    const brokerFlowsCard = document.getElementById("brokerSectorFlows")?.closest(".card");
+    if (brokerFlowsCard) brokerFlowsCard.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    // If not found, no-op (broker not loaded yet or sector not in top 10)
+    if (!hit) return;
+  });
+})();
