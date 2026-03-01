@@ -211,7 +211,7 @@
         data.forEach(r => {
           body.insertAdjacentHTML("beforeend",
             `<tr>
-              <td class="mono">${r.broker_id}</td>
+              <td class="mono" data-broker="${r.broker_id}" style="cursor:pointer;">${r.broker_id}</td>
               <td>${fmtNum(r[metric])}</td>
             </tr>`
           );
@@ -264,6 +264,16 @@
   qs("clearBrokerBtn").addEventListener("click", clearBroker);
   qs("loadSectorsBtn").addEventListener("click", loadSectors);
   qs("loadTopBrokersBtn").addEventListener("click", loadTopBrokers);
+
+  // Click a top-broker row to load broker insights
+  qs("topBrokers").addEventListener("click", (e) => {
+    const td = e.target && e.target.closest ? e.target.closest("td[data-broker]") : null;
+    if (!td) return;
+    const bid = td.getAttribute("data-broker");
+    const sel = qs("brokerId");
+    if (sel) sel.value = bid;
+    loadBroker();
+  });
   qs("loadTopSymbolsBtn").addEventListener("click", loadTopSymbols);
 
   // Small quality-of-life: Enter triggers broker load
