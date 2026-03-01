@@ -276,3 +276,79 @@
   loadTopBrokers().catch(() => {});
   loadTopSymbols().catch(() => {});
 })();
+
+// --- Anomalies today widget (appended) ---
+(async function attachAnomalies() {
+  function qs(id) { return document.getElementById(id); }
+  if (!qs("loadAnomaliesBtn")) return;
+
+  const API_BASE = (window.FLOORIQ_API_BASE || "").replace(/\/+$/, "");
+  function apiUrl(path, params) {
+    if (API_BASE) {
+      const u = new URL(API_BASE + path);
+      if (params) Object.entries(params).forEach(([k, v]) => v != null && v !== "" && u.searchParams.set(k, String(v)));
+      return u.toString();
+    }
+    const u = new URL(path, window.location.origin);
+    if (params) Object.entries(params).forEach(([k, v]) => v != null && v !== "" && u.searchParams.set(k, String(v)));
+    return u.toString();
+  }
+  function setErr(el, msg) {
+    if (!el) return;
+    if (!msg) { el.style.display = "none"; el.textContent = ""; return; }
+    el.style.display = "block";
+    el.textContent = msg;
+  }
+  async function fetchJson(url) {
+    const res = await fetch(url, { headers: { "accept": "application/json" } });
+    const text = await res.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch (_) {}
+    if (!res.ok) {
+      const detail = (data && (data.detail || data.message)) ? (data.detail || data.message) : text;
+      throw new Error(`HTTP ${res.status}: ${detail}`);
+    }
+    return data;
+  }
+  function fmtNum(x) {
+    if (x == null) return "—";
+    const n = Number(x);
+    if (Number.isFinite(n)) return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    return String(x);
+  }
+
+  async function loadAnomalies() {
+    const errEl = qs("anomaliesErr");
+    setErr(errEl, "");
+    qs("loadAnomaliesBtn").disabled = true;
+
+    try {
+      const url = apiUrl("/anomalies/today", { limit: 10 });
+      const payload = await fetchJson(url);
+      const body = qs("anomaliesToday");
+      body.innerHTML = "";
+      const data = payload.data || [];
+      if (!data.length) {
+        body.innerHTML = `<tr><td colspan="3" class="muted">No anomalies</td></tr>`;
+      } else {
+        data.forEach(a => {
+          body.insertAdjacentHTML("beforeend",
+            `<tr>
+              <td class="mono">${a.entity_type}:${a.entity_id}</td>
+              <td>${a.anomaly_type}</td>
+              <td>${fmtNum(a.score)}</td>
+            </tr>`
+          );
+        });
+      }
+      qs("anomaliesMeta").textContent = `business_date: ${data[0]?.business_date || "—"} | count: ${payload.count || data.length}`;
+    } catch (e) {
+      setErr(qs("anomaliesErr"), String(e.message || e));
+    } finally {
+      qs("loadAnomaliesBtn").disabled = false;
+    }
+  }
+
+  qs("loadAnomaliesBtn").addEventListener("click", loadAnomalies);
+  loadAnomalies().catch(() => {});
+})();

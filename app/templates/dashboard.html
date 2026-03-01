@@ -133,6 +133,19 @@
         </div>
 
         <div class="card" style="border-radius:12px; border-color:#eef0f2; box-shadow:none; margin-bottom:12px;">
+          <h2 style="margin-bottom:10px">Anomalies today</h2>
+          <div class="row">
+            <button id="loadAnomaliesBtn">Load</button>
+          </div>
+          <div id="anomaliesErr" class="error" style="margin-top:10px; display:none;"></div>
+          <table style="margin-top:10px;">
+            <thead><tr><th>Entity</th><th>Type</th><th>Score</th></tr></thead>
+            <tbody id="anomaliesToday"></tbody>
+          </table>
+          <div class="muted" id="anomaliesMeta" style="margin-top:8px"></div>
+        </div>
+
+        <div class="card" style="border-radius:12px; border-color:#eef0f2; box-shadow:none; margin-bottom:12px;">
           <h2 style="margin-bottom:10px">Top brokers</h2>
           <div class="row">
             <div>
