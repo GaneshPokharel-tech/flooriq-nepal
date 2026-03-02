@@ -19,7 +19,7 @@ def _resolve_ipv4(hostname: str) -> str | None:
 
 def get_conn() -> psycopg.Connection:
     # Load fresh settings each time (avoids stale global settings in long-running server)
-    s = Settings(_env_file=str(ENV_FILE))
+    s = Settings()
 
     if not s.supabase_db_host or not s.supabase_db_password:
         raise RuntimeError("Missing DB credentials (SUPABASE_DB_HOST / SUPABASE_DB_PASSWORD) in .env")
