@@ -74,11 +74,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return path.startswith("/insights/") or path.startswith("/insights") or path.startswith("/admin")
 
     def _client_ip(self, request: Request) -> str:
-        # Railway/Proxies: X-Forwarded-For may exist. Use first hop.
-        xff = request.headers.get("x-forwarded-for")
-        if xff:
-            return xff.split(",")[0].strip()
-        return request.client.host if request.client else "unknown"
+        # Prefer proxy-provided client IP headers (first hop)
+        for h in ("x-forwarded-for", "x-real-ip", "fly-client-ip", "cf-connecting-ip"):
+            v = request.headers.get(h)
+            if v:
+                return v.split(",")[0].strip()
+        # Some platforms may not expose client IP reliably; use global fallback for demo safety.
+        if request.client and request.client.host:
+            return request.client.host
+        return "global"
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         s = Settings()
