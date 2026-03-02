@@ -36,7 +36,7 @@ async def redis_client():
     if redis_async is None:
         return None
 
-    s = Settings(_env_file=str(ENV_FILE))
+    s = Settings()
     if not s.redis_url:
         return None
 
