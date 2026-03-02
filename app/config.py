@@ -25,5 +25,13 @@ class Settings(BaseSettings):
     supabase_db_sslmode: str = Field(default="require", validation_alias="SUPABASE_DB_SSLMODE")
     redis_url: str | None = Field(default=None, validation_alias="REDIS_URL")
 
+    # Demo hardening
+    dashboard_basic_auth: bool = Field(default=False, validation_alias="DASHBOARD_BASIC_AUTH")
+    dashboard_username: str = Field(default="", validation_alias="DASHBOARD_USERNAME")
+    dashboard_password: str = Field(default="", validation_alias="DASHBOARD_PASSWORD")
+
+    rate_limit_enabled: bool = Field(default=True, validation_alias="RATE_LIMIT_ENABLED")
+    rate_limit_per_minute: int = Field(default=60, validation_alias="RATE_LIMIT_PER_MINUTE")
+
 
 settings = Settings()
