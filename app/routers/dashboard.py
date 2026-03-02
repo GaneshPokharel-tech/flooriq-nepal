@@ -11,24 +11,33 @@ router = APIRouter(tags=["dashboard"])
 
 
 def _get_dashboard_context(conn: psycopg.Connection):
+    """
+    Keep dashboard resilient: don't 500 if broker_id casting/order has unexpected values.
+    """
+    latest_bd = None
+    broker_ids: list[int] = []
+
     with conn.cursor() as cur:
-        # latest business date (brokers)
         cur.execute("SELECT MAX(business_date) FROM public.broker_daily_features")
         latest_bd = cur.fetchone()[0]
 
-        # distinct broker ids available on latest date (keeps list small)
-        broker_ids = []
         if latest_bd is not None:
+            # Avoid broker_id::int in SQL (can crash if broker_id isn't strictly numeric)
             cur.execute(
                 """
                 SELECT broker_id
                 FROM public.broker_daily_features
                 WHERE business_date=%s
-                ORDER BY broker_id::int
+                ORDER BY broker_id
                 """,
                 (latest_bd,),
             )
-            broker_ids = [int(r[0]) for r in cur.fetchall()]
+            for (bid,) in cur.fetchall():
+                try:
+                    broker_ids.append(int(bid))
+                except Exception:
+                    # skip non-numeric broker ids safely
+                    continue
 
     return {
         "latest_business_date": (None if latest_bd is None else str(latest_bd)),
