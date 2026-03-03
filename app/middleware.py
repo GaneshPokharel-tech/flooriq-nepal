@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 import uuid
+import logging
 from typing import Callable, Optional
 
 from fastapi import Request
@@ -11,6 +12,8 @@ from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_429_TOO_MANY_REQUESTS
 
 from app.config import Settings
 from app.security import check_basic_auth
+
+logger = logging.getLogger("flooriq")
 
 
 def _is_public_path(path: str) -> bool:
@@ -42,7 +45,7 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
             resp = await call_next(request)
         except Exception as e:
             ms = int((time.time() - start) * 1000)
-            print(f"[req] id={rid} {request.method} {request.url.path} status=500 ms={ms} err={type(e).__name__}")
+            logger.exception(f"[req] id={rid} {request.method} {request.url.path} status=500 ms={ms}")
             raise
 
         ms = int((time.time() - start) * 1000)
@@ -51,7 +54,7 @@ class RequestLogMiddleware(BaseHTTPMiddleware):
         except Exception:
             pass
 
-        print(f"[req] id={rid} {request.method} {request.url.path} status={resp.status_code} ms={ms}")
+        logger.info(f"[req] id={rid} {request.method} {request.url.path} status={resp.status_code} ms={ms}")
         return resp
 
 
