@@ -21,7 +21,10 @@ def _is_public_path(path: str) -> bool:
 
 
 def _is_dashboard_protected_path(path: str) -> bool:
-    return path in ("/", "/dashboard") or path.startswith("/admin")
+    return (
+        path in ("/", "/dashboard", "/docs", "/redoc", "/openapi.json")
+        or path.startswith("/admin")
+    )
 
 
 class BasicAuthMiddleware(BaseHTTPMiddleware):
