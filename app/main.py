@@ -7,7 +7,7 @@ from app.routers.insights import router as insights_router
 from app.routers.admin import router as admin_router
 from app.routers.dashboard import router as dashboard_router
 
-from app.middleware import BasicAuthMiddleware, RateLimitMiddleware
+from app.middleware import RequestLogMiddleware, BasicAuthMiddleware, RateLimitMiddleware
 from app.dependencies import redis_client
 
 _settings_for_docs = Settings()
@@ -47,7 +47,8 @@ async def _shutdown():
         pass
 
 
-# Middleware (order matters: auth first, then rate limit)
+# Middleware (order matters: log first, then auth, then rate limit)
+app.add_middleware(RequestLogMiddleware)
 app.add_middleware(BasicAuthMiddleware)
 app.add_middleware(RateLimitMiddleware)
 

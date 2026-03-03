@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import uuid
 from typing import Callable, Optional
 
 from fastapi import Request
@@ -25,6 +26,33 @@ def _is_dashboard_protected_path(path: str) -> bool:
         path in ("/", "/dashboard", "/docs", "/redoc", "/openapi.json")
         or path.startswith("/admin")
     )
+
+
+class RequestLogMiddleware(BaseHTTPMiddleware):
+    """
+    Basic request logging + request id propagation for Railway logs.
+    """
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        start = time.time()
+        rid = request.headers.get("x-request-id") or uuid.uuid4().hex[:12]
+        request.state.request_id = rid
+
+        try:
+            resp = await call_next(request)
+        except Exception as e:
+            ms = int((time.time() - start) * 1000)
+            print(f"[req] id={rid} {request.method} {request.url.path} status=500 ms={ms} err={type(e).__name__}")
+            raise
+
+        ms = int((time.time() - start) * 1000)
+        try:
+            resp.headers["x-request-id"] = rid
+        except Exception:
+            pass
+
+        print(f"[req] id={rid} {request.method} {request.url.path} status={resp.status_code} ms={ms}")
+        return resp
 
 
 class BasicAuthMiddleware(BaseHTTPMiddleware):
