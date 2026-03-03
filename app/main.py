@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+
+from app.config import Settings
 from fastapi.staticfiles import StaticFiles
 
 from app.routers.insights import router as insights_router
@@ -8,10 +10,19 @@ from app.routers.dashboard import router as dashboard_router
 from app.middleware import BasicAuthMiddleware, RateLimitMiddleware
 from app.dependencies import redis_client
 
+_settings_for_docs = Settings()
+
+docs_url = None if _settings_for_docs.dashboard_basic_auth else "/docs"
+redoc_url = None if _settings_for_docs.dashboard_basic_auth else "/redoc"
+openapi_url = None if _settings_for_docs.dashboard_basic_auth else "/openapi.json"
+
 app = FastAPI(
     title="FloorIQ Nepal API",
     version="0.2.0",
     description="NEPSE floorsheet intelligence (analytics-only).",
+    docs_url=docs_url,
+    redoc_url=redoc_url,
+    openapi_url=openapi_url,
 )
 
 
