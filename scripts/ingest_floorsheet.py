@@ -35,11 +35,14 @@ def load_csv() -> pd.DataFrame:
         die(f"CSV missing columns: {missing}")
 
     # Normalize names to DB schema
+    buyer_mid = pd.to_numeric(df["buyerMemberId"], errors="coerce")
+    seller_mid = pd.to_numeric(df["sellerMemberId"], errors="coerce")
+
     df2 = pd.DataFrame({
         "contract_id": df["contractId"].astype("int64"),
         "stock_symbol": df["stockSymbol"].astype("string"),
-        "buyer_member_id": df["buyerMemberId"].astype("int32"),
-        "seller_member_id": df["sellerMemberId"].astype("int32"),
+        "buyer_member_id": buyer_mid,
+        "seller_member_id": seller_mid,
         "contract_quantity": df["contractQuantity"].astype("int64"),
         "contract_rate": df["contractRate"].astype("float64"),
         "contract_amount": df["contractAmount"].astype("float64"),
@@ -52,6 +55,15 @@ def load_csv() -> pd.DataFrame:
         "security_name": df["securityName"].astype("string"),
         "source": "nepse-client",
     })
+
+    # Clean required numeric ids (sometimes API can return blanks)
+    before = len(df2)
+    df2 = df2.dropna(subset=["buyer_member_id", "seller_member_id"])
+    df2["buyer_member_id"] = df2["buyer_member_id"].astype("int32")
+    df2["seller_member_id"] = df2["seller_member_id"].astype("int32")
+    dropped = before - len(df2)
+    if dropped:
+        print(f"[WARN] Dropped {dropped} rows with missing buyer/seller member id.")
 
     # Basic sanity
     if df2["business_date"].isna().any():
