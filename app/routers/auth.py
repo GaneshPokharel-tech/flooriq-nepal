@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Request, Form, Depends
+from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
+from starlette.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from app.dependencies import redis_client
@@ -47,39 +48,43 @@ async def login_page(request: Request, next: str | None = None):
     return templates.TemplateResponse("login.html", ctx)
 
 
-@router.post("/login", response_class=HTMLResponse)
+@router.post("/login")
 async def login_submit(
     request: Request,
-    broker_id: str = Form(...),
-    password: str = Form(...),
-    next: str | None = Form(None),
     redis=Depends(redis_client),
 ):
     s = Settings()
     if not s.broker_auth_enabled:
-        return RedirectResponse(url=_safe_next(next), status_code=303)
+        return JSONResponse({"ok": True, "next": "/dashboard"})
+
+    payload = {}
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    broker_id = str(payload.get("broker_id") or "").strip()
+    password = str(payload.get("password") or "")
+    next_path = _safe_next(str(payload.get("next") or "") or None)
 
     err = "Invalid broker ID or password."
     try:
-        bid = int(str(broker_id).strip())
+        bid = int(broker_id)
         if bid < 1:
             raise ValueError()
     except Exception:
-        ctx = {"request": request, "next": _safe_next(next), "error": err, "sebon_disclaimer": "Analytics only, no trading advice."}
-        return templates.TemplateResponse("login.html", ctx, status_code=401)
+        return JSONResponse({"ok": False, "error": err}, status_code=401)
 
     cfg = await get_broker_config(redis, bid)
     pwd_hash = (cfg.get("password_hash") or cfg.get("password") or "").strip()
     if not pwd_hash:
-        ctx = {"request": request, "next": _safe_next(next), "error": err, "sebon_disclaimer": "Analytics only, no trading advice."}
-        return templates.TemplateResponse("login.html", ctx, status_code=401)
+        return JSONResponse({"ok": False, "error": err}, status_code=401)
 
     if not verify_password(password, pwd_hash):
-        ctx = {"request": request, "next": _safe_next(next), "error": err, "sebon_disclaimer": "Analytics only, no trading advice."}
-        return templates.TemplateResponse("login.html", ctx, status_code=401)
+        return JSONResponse({"ok": False, "error": err}, status_code=401)
 
     token = sign_session(bid)
-    resp = RedirectResponse(url=_safe_next(next), status_code=303)
+    resp = JSONResponse({"ok": True, "next": next_path})
 
     secure = (s.app_env == "prod")
     resp.set_cookie(

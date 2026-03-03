@@ -27,25 +27,72 @@
 
   <main>
     <section class="card">
-      <form method="post" action="/login">
-        <input type="hidden" name="next" value="{{ next }}" />
+      <div>
+        <input type="hidden" id="next" value="{{ next }}" />
 
         <label for="broker_id">Broker ID</label>
-        <input id="broker_id" name="broker_id" inputmode="numeric" placeholder="e.g., 58" required />
+        <input id="broker_id" inputmode="numeric" placeholder="e.g., 58" />
 
         <label for="password">Password</label>
-        <input id="password" name="password" type="password" placeholder="password" required />
+        <input id="password" type="password" placeholder="password" />
 
-        {% if error %}
-          <div class="error">{{ error }}</div>
-        {% endif %}
+        <div id="err" class="error" style="display:none;"></div>
 
-        <button type="submit">Login</button>
-      </form>
+        <button id="loginBtn" type="button">Login</button>
+      </div>
 
       <div class="muted">
         Note: If you don’t have credentials, ask the admin to create/activate your broker account (Phase 1: env/Redis based).
       </div>
+
+      <script>
+        (function () {
+          function showErr(msg) {
+            var el = document.getElementById("err");
+            if (!el) return;
+            if (!msg) { el.style.display = "none"; el.textContent = ""; return; }
+            el.style.display = "block";
+            el.textContent = msg;
+          }
+
+          async function doLogin() {
+            showErr("");
+            var bid = (document.getElementById("broker_id") || {}).value || "";
+            var pwd = (document.getElementById("password") || {}).value || "";
+            var next = (document.getElementById("next") || {}).value || "/dashboard";
+
+            try {
+              var res = await fetch("/login", {
+                method: "POST",
+                headers: { "content-type": "application/json", "accept": "application/json" },
+                body: JSON.stringify({ broker_id: bid, password: pwd, next: next })
+              });
+              var data = null;
+              try { data = await res.json(); } catch (e) { data = null; }
+
+              if (!res.ok || !data || data.ok !== true) {
+                showErr((data && data.error) ? data.error : ("HTTP " + res.status));
+                return;
+              }
+
+              window.location.href = data.next || next || "/dashboard";
+            } catch (e) {
+              showErr(String(e && e.message ? e.message : e));
+            }
+          }
+
+          var btn = document.getElementById("loginBtn");
+          if (btn) btn.addEventListener("click", doLogin);
+
+          ["broker_id", "password"].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener("keydown", function (e) {
+              if (e.key === "Enter") doLogin();
+            });
+          });
+        })();
+      </script>
     </section>
   </main>
 </body>
