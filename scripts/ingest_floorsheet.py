@@ -57,13 +57,11 @@ def load_csv() -> pd.DataFrame:
     })
 
     # Clean required numeric ids (sometimes API can return blanks)
-    before = len(df2)
-    df2 = df2.dropna(subset=["buyer_member_id", "seller_member_id"])
-    df2["buyer_member_id"] = df2["buyer_member_id"].astype("int32")
-    df2["seller_member_id"] = df2["seller_member_id"].astype("int32")
-    dropped = before - len(df2)
-    if dropped:
-        print(f"[WARN] Dropped {dropped} rows with missing buyer/seller member id.")
+    missing = int(df2["buyer_member_id"].isna().sum() + df2["seller_member_id"].isna().sum())
+    if missing:
+        print(f"[WARN] Found {missing} missing buyer/seller member id values; filling with 0 (unknown).")
+    df2["buyer_member_id"] = df2["buyer_member_id"].fillna(0).astype("int32")
+    df2["seller_member_id"] = df2["seller_member_id"].fillna(0).astype("int32")
 
     # Basic sanity
     if df2["business_date"].isna().any():
