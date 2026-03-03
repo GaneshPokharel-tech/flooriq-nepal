@@ -1,13 +1,20 @@
 from fastapi import APIRouter, Request, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import psycopg
 
 from app.dependencies import db_conn
+from app.config import Settings
+from app.broker_auth import get_session_broker_id
 
 templates = Jinja2Templates(directory="app/templates")
 
 router = APIRouter(tags=["dashboard"])
+
+
+def _next_param(request: Request) -> str:
+    q = request.url.query
+    return request.url.path + (("?" + q) if q else "")
 
 
 def _get_dashboard_context(conn: psycopg.Connection):

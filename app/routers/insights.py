@@ -8,9 +8,10 @@ import json
 import csv
 
 import psycopg
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.dependencies import db_conn, redis_client
+from app.broker_auth import enforce_broker_access, broker_view_gate
 
 router = APIRouter(tags=["insights"])
 
@@ -76,6 +77,7 @@ async def broker_insights(
     business_date: Optional[str] = None,
     conn: psycopg.Connection = Depends(db_conn),
     redis=Depends(redis_client),
+    _=Depends(enforce_broker_access),
 ):
     """
     Broker intelligence endpoint (SEBON-safe analytics).
@@ -326,6 +328,7 @@ def symbol_insights(
     symbol: str,
     business_date: Optional[str] = None,
     conn: psycopg.Connection = Depends(db_conn),
+    _=Depends(broker_view_gate),
 ):
     symbol = symbol.upper().strip()
 
@@ -376,6 +379,7 @@ async def anomalies_today(
     limit: int = 50,
     conn: psycopg.Connection = Depends(db_conn),
     redis=Depends(redis_client),
+    _=Depends(broker_view_gate),
 ):
     if limit < 1:
         limit = 1
@@ -432,6 +436,7 @@ async def top_brokers(
     limit: int = 20,
     conn: psycopg.Connection = Depends(db_conn),
     redis=Depends(redis_client),
+    _=Depends(broker_view_gate),
 ):
     allowed = {
         "net_amount": "net_amount",
@@ -488,6 +493,7 @@ async def top_symbols(
     limit: int = 20,
     conn: psycopg.Connection = Depends(db_conn),
     redis=Depends(redis_client),
+    _=Depends(broker_view_gate),
 ):
     allowed = {
         "total_amount": "total_amount",
@@ -546,6 +552,7 @@ async def sector_rotation(
     limit: int = 10,
     conn: psycopg.Connection = Depends(db_conn),
     redis=Depends(redis_client),
+    _=Depends(broker_view_gate),
 ):
     """
     Sector rotation (turnover) signal:

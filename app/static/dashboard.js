@@ -111,7 +111,7 @@
 
       qs("brokerRisk").innerHTML = pillRisk(risk);
       qs("brokerHHI").textContent = (hhi == null) ? "—" : String(hhi);
-      qs("brokerTop1").textContent = (top1 == null) ? "—" : `%`;
+      qs("brokerTop1").textContent = (top1 == null) ? "—" : (String(top1) + "%");
 
       const sum = payload.summary || {};
       const netAmt = sum.net_amount;
@@ -203,7 +203,24 @@
     qs("brokerMeta").textContent = "";
   }
 
-  // Sector Rotation
+  
+  async function downloadPdf() {
+    const bid = Number(qs("brokerId").value);
+    const business_date = (qs("brokerDate").value || "").trim();
+    const errEl = qs("brokerErr");
+    setErr(errEl, "");
+
+    if (!bid || bid < 1) {
+      setErr(errEl, "Broker ID चाहिन्छ (positive integer).");
+      return;
+    }
+
+    const url = apiUrl(`/reports/broker/${bid}.pdf`, { business_date: business_date || undefined });
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+
+// Sector Rotation
   async function loadSectors() {
     const business_date = (qs("sectorDate").value || "").trim();
     const errEl = qs("sectorErr");
@@ -314,6 +331,7 @@
   qs("loadBrokerBtn").addEventListener("click", loadBroker);
   qs("refreshDataBtn").addEventListener("click", refreshData);
   qs("clearBrokerBtn").addEventListener("click", clearBroker);
+  qs("downloadPdfBtn").addEventListener("click", downloadPdf);
   qs("loadSectorsBtn").addEventListener("click", loadSectors);
   qs("loadTopBrokersBtn").addEventListener("click", loadTopBrokers);
 

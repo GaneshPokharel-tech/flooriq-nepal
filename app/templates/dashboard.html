@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>FloorIQ Nepal Dashboard (Demo)</title>
   <style>
+    .banner { margin-top:10px; padding:10px 12px; border-radius:10px; border:1px solid #e6e8eb; background:#fff7e6; font-size:13px; color:#333; }
+    .topbar { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap; }
+    .top-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    a.btnlink { display:inline-block; padding:8px 10px; border:1px solid #d6d9dd; border-radius:8px; background:#fff; color:#111; text-decoration:none; font-size:13px; }
     :root { color-scheme: light; }
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background:#f6f7f9; color:#111; }
     header { padding: 18px 20px; background:#fff; border-bottom:1px solid #e6e8eb; position: sticky; top:0; }
@@ -45,14 +49,35 @@
     .badge.blue { border-color:#b7d7ff; background:#eef6ff; }
     .row-selected { background:#fff7e6 !important; font-weight:650; }
 
+
+    @media (max-width: 520px) {
+      main { padding: 14px 12px 32px; }
+      input, select, button { width: 100%; min-width: 0; }
+      .row { align-items: stretch; }
+      .top-actions { width: 100%; justify-content: flex-start; }
+    }
+
   </style>
 </head>
 <body>
   <header>
-    <h1>FloorIQ Nepal Dashboard (Demo)</h1>
-    <div class="sub">
-      Simple front-end consuming existing API endpoints. No trading advice.
-      <span class="muted">API base: <span class="mono" id="apiBase"></span></span>
+    <div class="topbar">
+      <div>
+        <h1>FloorIQ Nepal Dashboard (Demo)</h1>
+        <div class="sub">
+          <span class="muted">API base: <span class="mono" id="apiBase"></span></span>
+        </div>
+      </div>
+      <div class="top-actions">
+        {% if session_broker_id %}
+          <span class="badge blue">Logged in: Broker {{ session_broker_id }}</span>
+          <a class="btnlink" href="/logout">Logout</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="banner" id="sebonBanner">
+      Analytics only, no trading advice. This dashboard shows descriptive market insights and anomaly flags based on public floorsheet transaction data.
     </div>
   </header>
 
@@ -60,14 +85,15 @@
     <div class="grid">
       <section class="card">
         <h2>Broker Insights</h2>
+        {% if broker_locked %}<div class="muted">Note: यो account ले आफ्नो broker मात्र हेर्न पाउँछ।</div>{% endif %}
 
         <div class="row">
           <div>
             <label for="brokerId">Broker ID</label>
-            <select id="brokerId">
+            <select id="brokerId" {% if broker_locked %}disabled{% endif %}>
               <option value="">Select broker</option>
               {% for bid in broker_ids %}
-              <option value="{{ bid }}">{{ bid }}</option>
+              <option value="{{ bid }}" {% if session_broker_id and session_broker_id == bid %}selected{% endif %}>{{ bid }}</option>
               {% endfor %}
             </select>
             <div class="muted" style="margin-top:6px;">Latest: {{ latest_business_date or "—" }}</div>
@@ -79,6 +105,7 @@
           <button id="loadBrokerBtn">Load</button>
           <button id="refreshDataBtn" class="secondary">Refresh data</button>
           <button id="copyLinkBtn" class="secondary">Copy link</button>
+          <button id="downloadPdfBtn" class="secondary">Download PDF</button>
           <button id="clearBrokerBtn" class="secondary">Clear</button>
         </div>
 

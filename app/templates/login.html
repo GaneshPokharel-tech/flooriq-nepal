@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FloorIQ Nepal — Broker Login</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; background:#f6f7f9; color:#111; }
+    header { padding: 18px 20px; background:#fff; border-bottom:1px solid #e6e8eb; }
+    header h1 { margin:0; font-size:18px; }
+    main { max-width: 520px; margin: 0 auto; padding: 18px 20px 40px; }
+    .card { background:#fff; border:1px solid #e6e8eb; border-radius:10px; padding:16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    label { font-size:12px; color:#555; display:block; margin:12px 0 6px; }
+    input { width:100%; padding:10px 10px; border:1px solid #d6d9dd; border-radius:8px; background:#fff; font: inherit; }
+    button { margin-top:14px; width:100%; padding:10px 12px; border:1px solid #d6d9dd; border-radius:8px; background:#111; color:#fff; cursor:pointer; font: inherit; }
+    .muted { color:#666; font-size:12px; margin-top:10px; }
+    .error { color:#b00020; font-size:13px; white-space: pre-wrap; margin-top:10px; }
+    .banner { margin-top:10px; padding:10px 12px; border-radius:10px; border:1px solid #e6e8eb; background:#fff7e6; font-size:13px; color:#333; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>FloorIQ Nepal — Broker Login</h1>
+    <div class="banner">{{ sebon_disclaimer }}</div>
+  </header>
+
+  <main>
+    <section class="card">
+      <form method="post" action="/login">
+        <input type="hidden" name="next" value="{{ next }}" />
+
+        <label for="broker_id">Broker ID</label>
+        <input id="broker_id" name="broker_id" inputmode="numeric" placeholder="e.g., 58" required />
+
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" placeholder="password" required />
+
+        {% if error %}
+          <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <button type="submit">Login</button>
+      </form>
+
+      <div class="muted">
+        Note: If you don’t have credentials, ask the admin to create/activate your broker account (Phase 1: env/Redis based).
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -6,6 +6,9 @@ from fastapi.staticfiles import StaticFiles
 from app.routers.insights import router as insights_router
 from app.routers.admin import router as admin_router
 from app.routers.dashboard import router as dashboard_router
+from app.routers.auth import router as auth_router
+from app.routers.reports import router as reports_router
+from app.routers.payments import router as payments_router
 
 from app.middleware import RequestLogMiddleware, BasicAuthMiddleware, RateLimitMiddleware
 from app.dependencies import redis_client
@@ -56,6 +59,9 @@ app.add_middleware(RateLimitMiddleware)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Routers
+app.include_router(auth_router)
+app.include_router(payments_router)
+app.include_router(reports_router)
 app.include_router(dashboard_router)
 app.include_router(insights_router)
 app.include_router(admin_router)

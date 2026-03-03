@@ -36,5 +36,22 @@ class Settings(BaseSettings):
     github_token: str = Field(default="", validation_alias="GITHUB_TOKEN")
     github_repo: str = Field(default="GaneshPokharel-tech/flooriq-nepal", validation_alias="GITHUB_REPO")
 
+    # Broker auth (Phase 1: no DB)
+    broker_auth_enabled: bool = Field(default=False, validation_alias="BROKER_AUTH_ENABLED")
+    broker_auth_secret: str = Field(default="", validation_alias="BROKER_AUTH_SECRET")
+    broker_session_ttl_seconds: int = Field(default=7 * 24 * 3600, validation_alias="BROKER_SESSION_TTL_SECONDS")
+    broker_cookie_name: str = Field(default="flooriq_broker", validation_alias="BROKER_COOKIE_NAME")
+    broker_allowlist_json: str = Field(default="", validation_alias="BROKER_ALLOWLIST_JSON")
+    broker_default_plan: str = Field(default="free", validation_alias="BROKER_DEFAULT_PLAN")
+
+    # Plan-based daily quota (Free: FREE_DAILY_LIMIT/day, Paid: unlimited)
+    plan_rate_limit_enabled: bool = Field(default=False, validation_alias="PLAN_RATE_LIMIT_ENABLED")
+    free_daily_limit: int = Field(default=10, validation_alias="FREE_DAILY_LIMIT")
+
+    # WhatsApp alerts (Phase 1: dry-run logging unless provider configured)
+    whatsapp_provider: str = Field(default="dryrun", validation_alias="WHATSAPP_PROVIDER")
+    whatsapp_from: str = Field(default="", validation_alias="WHATSAPP_FROM")
+    whatsapp_token: str = Field(default="", validation_alias="WHATSAPP_TOKEN")
+
 
 settings = Settings()
