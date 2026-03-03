@@ -52,6 +52,38 @@
     return data;
   }
 
+
+  async function refreshData() {
+    const btn = qs("refreshDataBtn");
+    const errEl = qs("brokerErr");
+    const msgEl = qs("brokerMsg");
+    setErr(errEl, "");
+    if (msgEl) { msgEl.style.display = "none"; msgEl.textContent = ""; }
+
+    if (btn) btn.disabled = true;
+
+    try {
+      const url = apiUrl(`/admin/refresh`);
+      const res = await fetch(url, { method: "POST", headers: { "accept": "application/json" } });
+      const text = await res.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch (_) {}
+      if (!res.ok) {
+        const detail = (data && (data.detail || data.message)) ? (data.detail || data.message) : text;
+        throw new Error(detail || ("HTTP " + res.status));
+      }
+      if (msgEl) {
+        msgEl.style.display = "block";
+        msgEl.textContent = "Refresh trigger भयो। GitHub Actions मा run सुरु भएको छ।";
+      }
+    } catch (e) {
+      setErr(errEl, String(e.message || e));
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+
   // Broker Insights
   async function loadBroker() {
     const brokerId = Number(qs("brokerId").value);
@@ -280,6 +312,7 @@
 
   // Wire up
   qs("loadBrokerBtn").addEventListener("click", loadBroker);
+  qs("refreshDataBtn").addEventListener("click", refreshData);
   qs("clearBrokerBtn").addEventListener("click", clearBroker);
   qs("loadSectorsBtn").addEventListener("click", loadSectors);
   qs("loadTopBrokersBtn").addEventListener("click", loadTopBrokers);
