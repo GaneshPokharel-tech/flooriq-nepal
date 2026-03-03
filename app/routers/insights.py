@@ -2,6 +2,7 @@ from typing import Optional
 
 from decimal import Decimal
 from pathlib import Path
+import os
 
 import json
 import csv
@@ -36,7 +37,8 @@ def _load_symbol_sector_map() -> dict:
     return _SYMBOL_SECTOR_MAP
 
 
-CACHE_TTL_SECONDS = 60
+# Cache TTL (seconds). Override via env CACHE_TTL_SECONDS.
+CACHE_TTL_SECONDS = int(os.getenv("CACHE_TTL_SECONDS", "60"))
 
 async def _cache_get(redis, key: str):
     if redis is None:
