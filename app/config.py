@@ -33,5 +33,8 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = Field(default=True, validation_alias="RATE_LIMIT_ENABLED")
     rate_limit_per_minute: int = Field(default=60, validation_alias="RATE_LIMIT_PER_MINUTE")
 
+    github_token: str = Field(default="", validation_alias="GITHUB_TOKEN")
+    github_repo: str = Field(default="GaneshPokharel-tech/flooriq-nepal", validation_alias="GITHUB_REPO")
+
 
 settings = Settings()
