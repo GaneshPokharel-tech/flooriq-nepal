@@ -7,8 +7,6 @@ from decimal import Decimal
 import psycopg
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
 
 from app.dependencies import db_conn, redis_client
 from app.broker_auth import enforce_broker_access, audit_event
@@ -109,7 +107,14 @@ async def broker_report_pdf(
         )
         arows = cur.fetchall()
 
-    # build PDF
+    # build PDF (lazy import so app can boot even if reportlab is missing)
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas
+    except Exception as e:
+        # keep API alive even if PDF deps missing
+        raise RuntimeError(f"PDF dependency missing: {type(e).__name__}")
+
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     w, h = A4
