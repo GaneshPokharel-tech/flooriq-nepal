@@ -79,9 +79,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             v = request.headers.get(h)
             if v:
                 return v.split(",")[0].strip()
-        # Some platforms may not expose client IP reliably; use global fallback for demo safety.
-        if request.client and request.client.host:
-            return request.client.host
+        # Some platforms may not expose a stable client IP reliably; use global fallback for demo safety.
         return "global"
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
