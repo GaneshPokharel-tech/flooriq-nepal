@@ -77,10 +77,18 @@ async def login_submit(
 
     cfg = await get_broker_config(redis, bid)
     pwd_hash = (cfg.get("password_hash") or cfg.get("password") or "").strip()
-    if not pwd_hash:
-        return JSONResponse({"ok": False, "error": err}, status_code=401)
 
-    if not verify_password(password, pwd_hash):
+    master = (s.broker_master_password or "").strip()
+    if pwd_hash:
+        ok = verify_password(password, pwd_hash)
+    else:
+        ok = False
+
+    # Phase 1 convenience: allow master password if configured (use carefully)
+    if (not ok) and master and password and password == master:
+        ok = True
+
+    if not ok:
         return JSONResponse({"ok": False, "error": err}, status_code=401)
 
     token = sign_session(bid)

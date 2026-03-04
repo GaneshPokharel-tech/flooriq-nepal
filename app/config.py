@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     broker_allowlist_json: str = Field(default="", validation_alias="BROKER_ALLOWLIST_JSON")
     broker_default_plan: str = Field(default="free", validation_alias="BROKER_DEFAULT_PLAN")
 
+    # Convenience (Phase 1): single master password for any broker (use carefully)
+    broker_master_password: str = Field(default="", validation_alias="BROKER_MASTER_PASSWORD")
+
+    # Admin super unlock (cookie-based bypass for broker gates)
+    admin_unlock_secret: str = Field(default="", validation_alias="ADMIN_UNLOCK_SECRET")
+    admin_unlock_ttl_seconds: int = Field(default=24 * 3600, validation_alias="ADMIN_UNLOCK_TTL_SECONDS")
+    admin_cookie_name: str = Field(default="flooriq_admin", validation_alias="ADMIN_COOKIE_NAME")
+
     # Plan-based daily quota (Free: FREE_DAILY_LIMIT/day, Paid: unlimited)
     plan_rate_limit_enabled: bool = Field(default=False, validation_alias="PLAN_RATE_LIMIT_ENABLED")
     free_daily_limit: int = Field(default=10, validation_alias="FREE_DAILY_LIMIT")

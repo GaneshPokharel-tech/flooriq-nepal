@@ -1,17 +1,49 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 import httpx
+
+from starlette.responses import JSONResponse
 
 from app.config import Settings
 from app.dependencies import redis_client
-from app.broker_auth import hash_password, set_broker_config
+from app.broker_auth import hash_password, set_broker_config, sign_admin_session, admin_cookie_name
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 WORKFLOW_FILE = "daily_refresh.yml"
 DEFAULT_REF = "main"
 
+
+
+@router.post("/super/unlock")
+async def super_unlock(request: Request):
+    """Set an admin unlock cookie so admin can view any broker's data (Phase 1 convenience)."""
+    s = Settings()
+    if not s.admin_unlock_secret:
+        raise HTTPException(status_code=500, detail="ADMIN_UNLOCK_SECRET not configured.")
+    tok = sign_admin_session()
+    resp = JSONResponse({"ok": True, "unlocked": True, "ttl_seconds": int(s.admin_unlock_ttl_seconds)})
+    secure = (s.app_env == "prod")
+    resp.set_cookie(
+        key=admin_cookie_name(),
+        value=tok,
+        max_age=int(s.admin_unlock_ttl_seconds),
+        httponly=True,
+        samesite="lax",
+        secure=secure,
+        path="/",
+    )
+    return resp
+
+
+@router.post("/super/lock")
+async def super_lock():
+    """Remove the admin unlock cookie."""
+    s = Settings()
+    resp = JSONResponse({"ok": True, "unlocked": False})
+    resp.delete_cookie(key=admin_cookie_name(), path="/")
+    return resp
 
 @router.post("/refresh")
 async def refresh(ref: str = DEFAULT_REF):

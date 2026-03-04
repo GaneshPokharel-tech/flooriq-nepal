@@ -36,6 +36,37 @@ def cookie_name() -> str:
     return s.broker_cookie_name or "flooriq_broker"
 
 
+
+def admin_cookie_name() -> str:
+    s = Settings()
+    return s.admin_cookie_name or "flooriq_admin"
+
+
+def sign_admin_session() -> str:
+    s = Settings()
+    if not s.admin_unlock_secret:
+        raise RuntimeError("ADMIN_UNLOCK_SECRET not configured.")
+    ser = URLSafeTimedSerializer(s.admin_unlock_secret, salt="flooriq-admin-session")
+    return ser.dumps({"admin": True})
+
+
+def unsign_admin_session(token: str) -> bool:
+    s = Settings()
+    if not s.admin_unlock_secret:
+        return False
+    ser = URLSafeTimedSerializer(s.admin_unlock_secret, salt="flooriq-admin-session")
+    try:
+        data = ser.loads(token, max_age=int(s.admin_unlock_ttl_seconds))
+        return bool(data.get("admin"))
+    except Exception:
+        return False
+
+
+def is_admin_unlocked(request: Request) -> bool:
+    tok = request.cookies.get(admin_cookie_name())
+    if not tok:
+        return False
+    return unsign_admin_session(tok)
 def sign_session(broker_id: int) -> str:
     s = Settings()
     if not s.broker_auth_secret:
@@ -253,6 +284,11 @@ async def enforce_broker_access(
     if not s.broker_auth_enabled:
         return int(broker_id)
 
+    # Admin super unlock bypass (cookie-based)
+    if is_admin_unlocked(request):
+        await audit_event(redis, int(session_bid), "admin_view", request, {"target_broker_id": int(broker_id)})
+        return int(session_bid)
+
     if int(session_bid) != int(broker_id):
         raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Forbidden: broker mismatch.")
 
@@ -275,6 +311,12 @@ async def broker_view_gate(
     s = Settings()
     if not s.broker_auth_enabled:
         return 0
+
+    # Admin super unlock bypass (cookie-based)
+    if is_admin_unlocked(request):
+        await audit_event(redis, int(bid), "admin_view", request)
+        return int(bid)
+
     await enforce_daily_quota(redis, int(bid), request)
     await audit_event(redis, int(bid), "view", request)
     return int(bid)
