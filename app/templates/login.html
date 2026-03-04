@@ -4,96 +4,752 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>FloorIQ Nepal — Broker Login</title>
+
+  <!-- Fonts (allowed) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
   <style>
-    :root { color-scheme: light; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; background:#f6f7f9; color:#111; }
-    header { padding: 18px 20px; background:#fff; border-bottom:1px solid #e6e8eb; }
-    header h1 { margin:0; font-size:18px; }
-    main { max-width: 520px; margin: 0 auto; padding: 18px 20px 40px; }
-    .card { background:#fff; border:1px solid #e6e8eb; border-radius:10px; padding:16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-    label { font-size:12px; color:#555; display:block; margin:12px 0 6px; }
-    input { width:100%; padding:10px 10px; border:1px solid #d6d9dd; border-radius:8px; background:#fff; font: inherit; }
-    button { margin-top:14px; width:100%; padding:10px 12px; border:1px solid #d6d9dd; border-radius:8px; background:#111; color:#fff; cursor:pointer; font: inherit; }
-    .muted { color:#666; font-size:12px; margin-top:10px; }
-    .error { color:#b00020; font-size:13px; white-space: pre-wrap; margin-top:10px; }
-    .banner { margin-top:10px; padding:10px 12px; border-radius:10px; border:1px solid #e6e8eb; background:#fff7e6; font-size:13px; color:#333; }
+    :root{
+      --bg:#080c10;
+      --panel:#0b1118;
+      --panel2:#0a0f16;
+      --border:rgba(255,255,255,.08);
+      --muted:rgba(255,255,255,.70);
+      --muted2:rgba(255,255,255,.55);
+      --text:rgba(255,255,255,.92);
+      --accent:#00d084;
+      --danger:#ff4d6d;
+      --shadow: 0 18px 55px rgba(0,0,0,.45);
+      --radius: 18px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:"DM Sans", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      overflow-x:hidden;
+    }
+
+    .page{
+      min-height:100%;
+      display:grid;
+      grid-template-columns: 1.2fr .9fr;
+    }
+
+    /* LEFT */
+    .left{
+      position:relative;
+      padding: clamp(18px, 3.2vw, 44px);
+      overflow:hidden;
+      border-right:1px solid var(--border);
+      background:
+        radial-gradient(900px 500px at 20% 20%, rgba(0,208,132,.14), transparent 55%),
+        radial-gradient(700px 420px at 70% 30%, rgba(0,208,132,.10), transparent 55%),
+        radial-gradient(800px 500px at 50% 90%, rgba(255,255,255,.05), transparent 60%),
+        var(--bg);
+    }
+
+    /* animated grid */
+    .grid{
+      position:absolute; inset:-50%;
+      background:
+        linear-gradient(rgba(0,208,132,.10) 1px, transparent 1px) 0 0/36px 36px,
+        linear-gradient(90deg, rgba(0,208,132,.10) 1px, transparent 1px) 0 0/36px 36px;
+      transform: rotate(14deg);
+      opacity:.22;
+      animation: gridFloat 14s linear infinite;
+      filter: drop-shadow(0 0 12px rgba(0,208,132,.15));
+      pointer-events:none;
+    }
+    .grid::after{
+      content:"";
+      position:absolute; inset:0;
+      background: radial-gradient(closest-side, rgba(0,208,132,.20), transparent 60%);
+      opacity:.35;
+      animation: glowPulse 6s ease-in-out infinite;
+    }
+    @keyframes gridFloat{
+      0%{ transform: rotate(14deg) translate3d(0,0,0); }
+      100%{ transform: rotate(14deg) translate3d(120px, 90px, 0); }
+    }
+    @keyframes glowPulse{
+      0%,100%{ opacity:.18; }
+      50%{ opacity:.45; }
+    }
+
+    .brand{
+      position:relative;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      margin-bottom: 18px;
+      z-index:1;
+    }
+    .logo{
+      width:42px;height:42px;border-radius:12px;
+      background: linear-gradient(135deg, rgba(0,208,132,.25), rgba(0,208,132,.06));
+      border:1px solid rgba(0,208,132,.25);
+      box-shadow: 0 10px 28px rgba(0,208,132,.10);
+      display:grid;place-items:center;
+      font-family:"Space Mono", monospace;
+      letter-spacing:.5px;
+      color:var(--accent);
+      font-weight:700;
+    }
+    .brand h1{
+      margin:0;
+      font-size: clamp(18px, 2.2vw, 26px);
+      font-weight:700;
+      line-height:1.1;
+    }
+    .brand p{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size: 14px;
+    }
+
+    /* ticker */
+    .tickerWrap{
+      position:relative;
+      z-index:1;
+      margin: 14px 0 18px;
+      border:1px solid var(--border);
+      border-radius: 999px;
+      overflow:hidden;
+      background: rgba(10,15,22,.55);
+      box-shadow: 0 10px 34px rgba(0,0,0,.25);
+    }
+    .ticker{
+      display:flex;
+      gap:26px;
+      white-space:nowrap;
+      padding: 10px 14px;
+      animation: tickerMove 22s linear infinite;
+      will-change: transform;
+    }
+    .ticker:hover{ animation-play-state: paused; }
+    @keyframes tickerMove{
+      0%{ transform: translateX(0); }
+      100%{ transform: translateX(-50%); }
+    }
+    .tickItem{
+      display:flex;align-items:center;gap:10px;
+      font-family:"Space Mono", monospace;
+      font-size: 12.5px;
+      color: rgba(255,255,255,.86);
+    }
+    .dot{
+      width:8px;height:8px;border-radius:50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,208,132,.16);
+    }
+    .chgUp{ color: var(--accent); }
+    .chgDn{ color: #ff6b7a; }
+
+    /* Cards row */
+    .cards{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .card{
+      background: rgba(11,17,24,.65);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      min-height: 94px;
+    }
+    .k{
+      font-size: 12px;
+      color: var(--muted2);
+      display:flex;align-items:center;justify-content:space-between;
+      gap:10px;
+    }
+    .v{
+      margin-top:10px;
+      font-family:"Space Mono", monospace;
+      font-size: 18px;
+      font-weight:700;
+      letter-spacing:.2px;
+      color: rgba(255,255,255,.92);
+    }
+    .sub{
+      margin-top:6px;
+      font-size: 12.5px;
+      color: var(--muted);
+      line-height:1.35;
+    }
+    .pill{
+      font-family:"Space Mono", monospace;
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border:1px solid rgba(0,208,132,.28);
+      color: var(--accent);
+      background: rgba(0,208,132,.08);
+    }
+
+    /* HHI panel */
+    .hhi{
+      position:relative;
+      z-index:1;
+      margin-top: 14px;
+      background: rgba(11,17,24,.65);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .hhiTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom: 8px;
+    }
+    .hhiTop .title{
+      font-weight:700;
+      letter-spacing:.2px;
+    }
+    .hhiTop .meta{
+      font-family:"Space Mono", monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .sparkWrap{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 14px;
+    }
+    canvas{
+      width: 100%;
+      max-width: 420px;
+      height: 70px;
+      display:block;
+      border-radius: 12px;
+      border:1px solid rgba(255,255,255,.06);
+      background: rgba(8,12,16,.40);
+    }
+    .hhiSide{
+      min-width: 150px;
+      text-align:right;
+    }
+    .hhiSide .big{
+      font-family:"Space Mono", monospace;
+      font-weight:700;
+      font-size: 22px;
+      color: rgba(255,255,255,.92);
+    }
+    .hhiSide .label{
+      margin-top:4px;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+    .leftFooter{
+      position:relative;
+      z-index:1;
+      margin-top: 18px;
+      color: rgba(255,255,255,.70);
+      font-size: 12.5px;
+      line-height: 1.45;
+      max-width: 62ch;
+    }
+    .leftFooter strong{ color: rgba(255,255,255,.92); }
+
+    /* RIGHT */
+    .right{
+      padding: clamp(18px, 3vw, 44px);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:
+        radial-gradient(700px 500px at 50% 25%, rgba(0,208,132,.10), transparent 60%),
+        radial-gradient(800px 500px at 50% 90%, rgba(255,255,255,.04), transparent 60%),
+        var(--panel2);
+    }
+    .auth{
+      width: 100%;
+      max-width: 430px;
+      border:1px solid var(--border);
+      background: rgba(11,17,24,.78);
+      border-radius: 22px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+    .authHead{
+      margin-bottom: 14px;
+    }
+    .authHead h2{
+      margin:0;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: .2px;
+    }
+    .authHead p{
+      margin:8px 0 0;
+      color: var(--muted);
+      font-size: 13.5px;
+      line-height: 1.45;
+    }
+
+    .error{
+      display:none;
+      margin: 12px 0 0;
+      border:1px solid rgba(255,77,109,.35);
+      background: rgba(255,77,109,.10);
+      color: rgba(255,255,255,.92);
+      padding: 10px 12px;
+      border-radius: 14px;
+      font-size: 13px;
+      line-height:1.35;
+    }
+    .error strong{ color: #ffd2da; }
+
+    form{
+      margin-top: 16px;
+      display:grid;
+      gap: 12px;
+    }
+    label{
+      display:block;
+      font-size: 12px;
+      color: var(--muted2);
+      margin: 0 0 6px;
+    }
+    .field{
+      background: rgba(8,12,16,.55);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: 14px;
+      padding: 12px 12px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .field:focus-within{
+      border-color: rgba(0,208,132,.45);
+      box-shadow: 0 0 0 4px rgba(0,208,132,.10);
+    }
+    input{
+      width:100%;
+      border:none;
+      outline:none;
+      background: transparent;
+      color: rgba(255,255,255,.92);
+      font-size: 15px;
+      font-family:"Space Mono", monospace;
+      letter-spacing:.2px;
+    }
+    input::placeholder{ color: rgba(255,255,255,.35); }
+
+    .hint{
+      font-size: 12px;
+      color: rgba(255,255,255,.55);
+      line-height: 1.45;
+      margin-top: 2px;
+    }
+
+    .btn{
+      margin-top: 4px;
+      width:100%;
+      border:none;
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: linear-gradient(135deg, rgba(0,208,132,1), rgba(0,208,132,.75));
+      color: #04120b;
+      font-weight: 800;
+      font-size: 14px;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      transition: transform .06s ease, filter .15s ease;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn:disabled{
+      cursor:not-allowed;
+      filter: saturate(.9) brightness(.9);
+    }
+    .spinner{
+      width:16px;height:16px;
+      border-radius:50%;
+      border:2px solid rgba(4,18,11,.35);
+      border-top-color: rgba(4,18,11,.95);
+      display:none;
+      animation: spin .9s linear infinite;
+    }
+    @keyframes spin{ to { transform: rotate(360deg);} }
+
+    .metaRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: rgba(255,255,255,.55);
+    }
+    .metaRow a{
+      color: rgba(0,208,132,.95);
+      text-decoration:none;
+    }
+    .metaRow a:hover{ text-decoration: underline; }
+
+    .legal{
+      margin-top: 14px;
+      font-size: 11.5px;
+      color: rgba(255,255,255,.50);
+      line-height: 1.5;
+      border-top: 1px solid rgba(255,255,255,.08);
+      padding-top: 12px;
+    }
+
+    /* Responsive */
+    @media (max-width: 980px){
+      .page{ grid-template-columns: 1fr; }
+      .left{ border-right:none; border-bottom:1px solid var(--border); }
+      .cards{ grid-template-columns: 1fr; }
+      .sparkWrap{ flex-direction:column; align-items:stretch; }
+      .hhiSide{ text-align:left; min-width: unset; }
+      canvas{ max-width: 100%; }
+    }
+
+    @media (max-width: 480px){
+      .auth{ padding: 18px; border-radius: 18px; }
+      .tickerWrap{ border-radius: 14px; }
+      .brand p{ font-size: 13px; }
+      .card{ min-height: unset; }
+    }
   </style>
 </head>
+
 <body>
-  <header>
-    <h1>FloorIQ Nepal — Broker Login</h1>
-    <div class="banner">{{ sebon_disclaimer }}</div>
-  </header>
+  <div class="page">
+    <!-- LEFT PANEL -->
+    <section class="left" aria-label="Market overview">
+      <div class="grid" aria-hidden="true"></div>
 
-  <main>
-    <section class="card">
-      <div>
-        <input type="hidden" id="next" value="{{ next }}" />
-
-        <label for="broker_id">Broker ID</label>
-        <input id="broker_id" inputmode="numeric" placeholder="e.g., 58" />
-
-        <label for="password">Password</label>
-        <input id="password" type="password" placeholder="password" />
-
-        <div id="err" class="error" style="display:none;"></div>
-
-        <button id="loginBtn" type="button">Login</button>
+      <div class="brand">
+        <div class="logo">FIQ</div>
+        <div>
+          <h1>FloorIQ Nepal</h1>
+          <p>Analytics-only dashboard for broker activity & anomalies (SEBON-safe)</p>
+        </div>
       </div>
 
-      <div class="muted">
-        Note: If you don’t have credentials, ask the admin to create/activate your broker account (Phase 1: env/Redis based).
+      <!-- Live ticker -->
+      <div class="tickerWrap" role="region" aria-label="NEPSE live ticker (demo)">
+        <div class="ticker" id="ticker">
+          <!-- JS fills + duplicates for seamless scroll -->
+        </div>
       </div>
 
-      <script>
-        (function () {
-          function showErr(msg) {
-            var el = document.getElementById("err");
-            if (!el) return;
-            if (!msg) { el.style.display = "none"; el.textContent = ""; return; }
-            el.style.display = "block";
-            el.textContent = msg;
-          }
+      <!-- HHI Sparkline -->
+      <div class="hhi">
+        <div class="hhiTop">
+          <div class="title">HHI Concentration (Buy-side)</div>
+          <div class="meta" id="hhiMeta">last 10 sessions</div>
+        </div>
+        <div class="sparkWrap">
+          <canvas id="hhiCanvas" width="520" height="100" aria-label="HHI sparkline"></canvas>
+          <div class="hhiSide">
+            <div class="big" id="hhiNow">—</div>
+            <div class="label" id="hhiLabel">Loading…</div>
+          </div>
+        </div>
+      </div>
 
-          async function doLogin() {
-            showErr("");
-            var bid = (document.getElementById("broker_id") || {}).value || "";
-            var pwd = (document.getElementById("password") || {}).value || "";
-            var next = (document.getElementById("next") || {}).value || "/dashboard";
+      <!-- Stats -->
+      <div class="cards">
+        <div class="card">
+          <div class="k">
+            <span>Latest Business Date</span>
+            <span class="pill" id="pill1">LIVE</span>
+          </div>
+          <div class="v" id="statDate">—</div>
+          <div class="sub">Auto-refresh pipeline + anomaly flags computed from public floorsheet data.</div>
+        </div>
 
-            try {
-              var res = await fetch("/login", {
-                method: "POST",
-                headers: { "content-type": "application/json", "accept": "application/json" },
-                body: JSON.stringify({ broker_id: bid, password: pwd, next: next })
-              });
-              var data = null;
-              try { data = await res.json(); } catch (e) { data = null; }
+        <div class="card">
+          <div class="k"><span>Signals Today</span><span class="pill">SEBON-safe</span></div>
+          <div class="v" id="statSignals">—</div>
+          <div class="sub">Unusual activity flags (spikes, self-trade, pair roundtrips, dominance).</div>
+        </div>
 
-              if (!res.ok || !data || data.ok !== true) {
-                showErr((data && data.error) ? data.error : ("HTTP " + res.status));
-                return;
-              }
+        <div class="card">
+          <div class="k"><span>Quota (Free)</span><span class="pill">10/day</span></div>
+          <div class="v" id="statQuota">—</div>
+          <div class="sub">Daily request quota enforced for free plan. Paid plans are unlimited.</div>
+        </div>
+      </div>
 
-              window.location.href = data.next || next || "/dashboard";
-            } catch (e) {
-              showErr(String(e && e.message ? e.message : e));
-            }
-          }
-
-          var btn = document.getElementById("loginBtn");
-          if (btn) btn.addEventListener("click", doLogin);
-
-          ["broker_id", "password"].forEach(function (id) {
-            var el = document.getElementById(id);
-            if (!el) return;
-            el.addEventListener("keydown", function (e) {
-              if (e.key === "Enter") doLogin();
-            });
-          });
-        })();
-      </script>
+      <div class="leftFooter">
+        <strong>Disclaimer:</strong> Analytics only. No trading advice. This service provides descriptive insights and anomaly flags based on public floorsheet transactions. It does not provide buy/sell/hold recommendations.
+      </div>
     </section>
-  </main>
+
+    <!-- RIGHT PANEL -->
+    <section class="right" aria-label="Broker login">
+      <div class="auth">
+        <div class="authHead">
+          <h2>Broker Login</h2>
+          <p>Broker ID र password प्रयोग गरेर dashboard access गर्नुहोस्।</p>
+        </div>
+
+        <div class="error" id="errBox">
+          <strong>Login असफल भयो.</strong> Broker ID वा password गलत हुन सक्छ। फेरि प्रयास गर्नुहोस्।
+        </div>
+
+        <form id="loginForm" action="/login" method="post" autocomplete="on">
+          <input type="hidden" name="next" value="/dashboard" />
+
+          <div>
+            <label for="broker_id">Broker ID</label>
+            <div class="field">
+              <span style="font-family:'Space Mono',monospace;color:rgba(255,255,255,.55);font-size:13px;">ID</span>
+              <input id="broker_id" name="broker_id" inputmode="numeric" autocomplete="username"
+                     placeholder="जस्तै: 45" required />
+            </div>
+            <div class="hint">Tip: Admin ले provision गरेको Broker ID प्रयोग गर्नुहोस्।</div>
+          </div>
+
+          <div>
+            <label for="password">Password</label>
+            <div class="field">
+              <span style="font-family:'Space Mono',monospace;color:rgba(255,255,255,.55);font-size:13px;">••</span>
+              <input id="password" name="password" type="password" autocomplete="current-password"
+                     placeholder="तपाईंको password" required />
+            </div>
+            <div class="hint">Password case-sensitive हुन्छ।</div>
+          </div>
+
+          <button class="btn" id="submitBtn" type="submit">
+            <span class="spinner" id="spinner" aria-hidden="true"></span>
+            <span id="btnText">Sign in</span>
+          </button>
+
+          <div class="metaRow">
+            <span style="font-family:'Space Mono',monospace;">POST /login</span>
+            <a href="/dashboard" onclick="return false;">Need help?</a>
+          </div>
+
+          <div class="legal">
+            SEBON Disclaimer: Analytics only, no trading advice. All outputs are descriptive and based on public floorsheet data.
+          </div>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function(){
+      // ===== Error via ?error=1 =====
+      const params = new URLSearchParams(window.location.search || "");
+      const errBox = document.getElementById("errBox");
+      if (params.get("error") === "1") {
+        errBox.style.display = "block";
+      }
+
+      // ===== Ticker (demo data; replace later if you want API-driven) =====
+      const tick = [
+        {s:"NABIL", p: 585.2, c:+1.9},
+        {s:"NRIC",  p: 862.0, c:-0.7},
+        {s:"NLIC",  p: 720.4, c:+0.4},
+        {s:"SANVI", p: 510.0, c:+2.1},
+        {s:"HDL",   p: 2450.0, c:-1.3},
+        {s:"HRL",   p: 618.6, c:+0.8},
+        {s:"NGPL",  p: 306.1, c:+1.2},
+        {s:"CIT",   p: 1985.0, c:-0.5},
+        {s:"SHIVM", p: 508.8, c:+0.3},
+        {s:"AKPL",  p: 216.9, c:-0.2},
+      ];
+
+      function mkItem(t){
+        const chgCls = t.c >= 0 ? "chgUp" : "chgDn";
+        const sign = t.c >= 0 ? "+" : "";
+        return `
+          <span class="tickItem">
+            <span class="dot"></span>
+            <span>${t.s}</span>
+            <span style="opacity:.75">${Number(t.p).toFixed(1)}</span>
+            <span class="${chgCls}">${sign}${t.c.toFixed(1)}%</span>
+          </span>
+        `;
+      }
+
+      // duplicate for seamless move (50% translate)
+      const ticker = document.getElementById("ticker");
+      const html = tick.map(mkItem).join("") + tick.map(mkItem).join("");
+      ticker.innerHTML = html;
+
+      // ===== HHI Sparkline (demo; replace with real broker insights later) =====
+      const canvas = document.getElementById("hhiCanvas");
+      const ctx = canvas.getContext("2d");
+
+      function rand(min,max){ return Math.random()*(max-min)+min; }
+
+      // Generate plausible HHI time series: 800–3200
+      const series = [];
+      let v = rand(1100, 2000);
+      for(let i=0;i<10;i++){
+        v = Math.max(800, Math.min(3200, v + rand(-240, 240)));
+        series.push(v);
+      }
+
+      const latest = series[series.length-1];
+      const hhiNow = document.getElementById("hhiNow");
+      const hhiLabel = document.getElementById("hhiLabel");
+      hhiNow.textContent = Math.round(latest);
+      if (latest >= 2500) hhiLabel.textContent = "High concentration";
+      else if (latest >= 1500) hhiLabel.textContent = "Medium concentration";
+      else hhiLabel.textContent = "Low concentration";
+
+      function drawSpark(data){
+        // handle device pixel ratio for sharpness
+        const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+        const cssW = canvas.clientWidth;
+        const cssH = canvas.clientHeight;
+        canvas.width = Math.floor(cssW * dpr);
+        canvas.height = Math.floor(cssH * dpr);
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+
+        // clear
+        ctx.clearRect(0,0,cssW,cssH);
+
+        // padding
+        const pad = 10;
+        const w = cssW - pad*2;
+        const h = cssH - pad*2;
+
+        const min = Math.min.apply(null, data);
+        const max = Math.max.apply(null, data);
+        const range = Math.max(1, max - min);
+
+        // grid faint
+        ctx.strokeStyle = "rgba(255,255,255,0.06)";
+        ctx.lineWidth = 1;
+        for(let i=1;i<=3;i++){
+          const y = pad + (h/4)*i;
+          ctx.beginPath();
+          ctx.moveTo(pad, y);
+          ctx.lineTo(pad + w, y);
+          ctx.stroke();
+        }
+
+        // area fill
+        ctx.beginPath();
+        data.forEach((val, i)=>{
+          const x = pad + (w*(i/(data.length-1)));
+          const y = pad + (h*(1 - ((val-min)/range)));
+          if(i===0) ctx.moveTo(x,y);
+          else ctx.lineTo(x,y);
+        });
+        ctx.lineTo(pad + w, pad + h);
+        ctx.lineTo(pad, pad + h);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(0,208,132,0.10)";
+        ctx.fill();
+
+        // line
+        ctx.beginPath();
+        data.forEach((val, i)=>{
+          const x = pad + (w*(i/(data.length-1)));
+          const y = pad + (h*(1 - ((val-min)/range)));
+          if(i===0) ctx.moveTo(x,y);
+          else ctx.lineTo(x,y);
+        });
+        ctx.strokeStyle = "rgba(0,208,132,0.95)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // last dot
+        const lx = pad + w;
+        const ly = pad + (h*(1 - ((data[data.length-1]-min)/range)));
+        ctx.beginPath();
+        ctx.arc(lx, ly, 3.6, 0, Math.PI*2);
+        ctx.fillStyle = "rgba(0,208,132,1)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,0.35)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      drawSpark(series);
+      window.addEventListener("resize", ()=> drawSpark(series));
+
+      // ===== Stats (demo placeholders; you can wire these to real APIs later) =====
+      // These are cosmetic for login page.
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth()+1).padStart(2,"0");
+      const d = String(today.getDate()).padStart(2,"0");
+      document.getElementById("statDate").textContent = `${y}-${m}-${d}`;
+      document.getElementById("statSignals").textContent = "Wash + Spikes";
+      document.getElementById("statQuota").textContent = "10 req/day";
+
+      // ===== Form submit: show spinner + POST JSON to /login =====
+      const form = document.getElementById("loginForm");
+      const btn = document.getElementById("submitBtn");
+      const sp = document.getElementById("spinner");
+      const btnText = document.getElementById("btnText");
+
+      form.addEventListener("submit", async (e)=>{
+        e.preventDefault();
+
+        // UI loading
+        btn.disabled = true;
+        sp.style.display = "inline-block";
+        btnText.textContent = "Signing in…";
+        errBox.style.display = "none";
+
+        const broker_id = String(document.getElementById("broker_id").value || "").trim();
+        const password = String(document.getElementById("password").value || "");
+        const next = "/dashboard";
+
+        try{
+          const res = await fetch(form.action || "/login", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            credentials: "include",
+            body: JSON.stringify({ broker_id, password, next })
+          });
+
+          if(!res.ok){
+            // show error banner, stay on page
+            errBox.style.display = "block";
+            btn.disabled = false;
+            sp.style.display = "none";
+            btnText.textContent = "Sign in";
+            return;
+          }
+
+          const data = await res.json().catch(()=> ({}));
+          const go = (data && data.next) ? data.next : next;
+          window.location.href = go;
+        }catch(err){
+          errBox.style.display = "block";
+          btn.disabled = false;
+          sp.style.display = "none";
+          btnText.textContent = "Sign in";
+        }
+      });
+
+    })();
+  </script>
 </body>
 </html>
