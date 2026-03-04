@@ -107,39 +107,39 @@ async def broker_report_pdf(
         )
         arows = cur.fetchall()
 
-    # build PDF (lazy import so app can boot even if reportlab is missing)
+    # build PDF using fpdf2 (lightweight; safe for Railway boot)
     try:
-        from reportlab.lib.pagesizes import A4
-        from reportlab.pdfgen import canvas
+        from fpdf import FPDF
     except Exception as e:
         # keep API alive even if PDF deps missing
         raise RuntimeError(f"PDF dependency missing: {type(e).__name__}")
 
-    buf = BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
-    w, h = A4
+    class _PDF(FPDF):
+        def header(self):
+            self.set_font("Helvetica", "B", 12)
+            self.cell(0, 8, "FloorIQ Nepal — Broker Report (Analytics only)", ln=1)
+            self.set_font("Helvetica", "", 9)
+            self.multi_cell(
+                0,
+                5,
+                "SEBON Disclaimer: Analytics only, no trading advice. Descriptive insights based on public floorsheet data.",
+            )
+            self.ln(2)
 
-    y = h - 48
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(40, y, "FloorIQ Nepal — Broker Report (Analytics only)")
-    y -= 18
-    c.setFont("Helvetica", 10)
-    c.drawString(40, y, "SEBON Disclaimer: Analytics only, no trading advice. Descriptive insights based on public floorsheet data.")
-    y -= 22
+    pdf = _PDF(orientation="P", unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
 
-    c.setFont("Helvetica-Bold", 12)
-    c.drawString(40, y, f"Broker {broker_id}  |  Business date: {summary.get('business_date')}")
-    y -= 18
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 7, f"Broker {broker_id}  |  Business date: {summary.get('business_date')}", ln=1)
+    pdf.ln(1)
 
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(40, y, "Summary")
-    y -= 14
-    c.setFont("Helvetica", 10)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, "Summary", ln=1)
+    pdf.set_font("Helvetica", "", 10)
 
     def line(k, v):
-        nonlocal y
-        c.drawString(50, y, f"{k}: {v}")
-        y -= 12
+        pdf.cell(0, 5, f"{k}: {v}", ln=1)
 
     line("Net amount", _fnum(summary.get("net_amount")))
     line("Total buy amount", _fnum(summary.get("total_buy_amount")))
@@ -149,52 +149,51 @@ async def broker_report_pdf(
     line("Unique symbols (buy)", _fnum(summary.get("unique_symbols_buy")))
     line("Unique symbols (sell)", _fnum(summary.get("unique_symbols_sell")))
 
-    y -= 6
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(40, y, "Top symbols (buy)")
-    y -= 14
-    c.setFont("Helvetica", 10)
-    if not top_symbols:
-        c.drawString(50, y, "No data")
-        y -= 12
-    else:
-        c.drawString(50, y, "Symbol")
-        c.drawString(160, y, "Amount")
-        c.drawString(280, y, "Share %")
-        y -= 12
-        for sym, amt, pct in top_symbols[:10]:
-            if y < 80:
-                c.showPage()
-                y = h - 48
-                c.setFont("Helvetica", 10)
-            c.drawString(50, y, str(sym))
-            c.drawString(160, y, f"{amt:,.2f}")
-            c.drawString(280, y, f"{pct:.2f}%")
-            y -= 12
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, "Top symbols (buy)", ln=1)
+    pdf.set_font("Helvetica", "", 10)
 
-    y -= 6
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(40, y, "Anomalies (broker)")
-    y -= 14
-    c.setFont("Helvetica", 10)
+    if not top_symbols:
+        pdf.cell(0, 5, "No data", ln=1)
+    else:
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(30, 6, "Symbol", border=0)
+        pdf.cell(45, 6, "Amount", border=0)
+        pdf.cell(25, 6, "Share %", border=0, ln=1)
+        pdf.set_font("Helvetica", "", 10)
+        for sym, amt, pct in top_symbols[:10]:
+            pdf.cell(30, 5, str(sym), border=0)
+            pdf.cell(45, 5, f"{amt:,.2f}", border=0)
+            pdf.cell(25, 5, f"{pct:.2f}%", border=0, ln=1)
+
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(0, 6, "Anomalies (broker)", ln=1)
+    pdf.set_font("Helvetica", "", 10)
+
     if not arows:
-        c.drawString(50, y, "No anomalies")
-        y -= 12
+        pdf.cell(0, 5, "No anomalies", ln=1)
     else:
         for atype, score, details in arows:
-            if y < 80:
-                c.showPage()
-                y = h - 48
-                c.setFont("Helvetica", 10)
             d = (details or "")
-            d = d.replace("\n", " ")[:160]
-            c.drawString(50, y, f"{atype} | score={float(score):.2f}")
-            y -= 12
-            c.drawString(60, y, d)
-            y -= 14
+            d = d.replace("\n", " ")
+            try:
+                d = str(d)
+            except Exception:
+                d = ""
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.multi_cell(0, 5, f"{atype} | score={float(score):.2f}")
+            pdf.set_font("Helvetica", "", 9)
+            pdf.multi_cell(0, 5, d[:240])
+            pdf.ln(1)
 
-    c.showPage()
-    c.save()
+    _out = pdf.output(dest="S")
+    if isinstance(_out, (bytes, bytearray)):
+        pdf_bytes = bytes(_out)
+    else:
+        pdf_bytes = str(_out).encode("latin-1")
+    buf = BytesIO(pdf_bytes)
     buf.seek(0)
 
     await audit_event(redis, int(broker_id), "download_pdf", request, {"business_date": str(summary.get("business_date"))})
@@ -203,5 +202,6 @@ async def broker_report_pdf(
     return StreamingResponse(
         buf,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename=\"{filename}\"'},
     )
+

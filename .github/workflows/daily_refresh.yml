@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
   schedule:
     # Nepal Time is UTC+5:45.
-    # Run at 10:30 UTC ~= 16:15 NPT (after market close)
-    - cron: "30 10 * * *"
+    # Run at 10:45 UTC ~= 16:30 NPT (4:30 PM Nepal time)
+    - cron: "45 10 * * *"
 
 jobs:
   refresh:
@@ -62,5 +62,23 @@ jobs:
           SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_DB_SSLMODE: "require"
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          TZ: "Asia/Kathmandu"
+          WHATSAPP_PROVIDER: "dryrun"
         run: |
           PYTHONPATH=. python scripts/refresh.py --skip-fetch
+
+      - name: WhatsApp daily alerts (dryrun)
+        if: steps.fetch.outputs.skip != 'true'
+        env:
+          SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
+          SUPABASE_DB_PORT: ${{ secrets.SUPABASE_DB_PORT }}
+          SUPABASE_DB_NAME: "postgres"
+          SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_SSLMODE: "require"
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          TZ: "Asia/Kathmandu"
+          WHATSAPP_PROVIDER: "dryrun"
+        run: |
+          PYTHONPATH=. python scripts/whatsapp_daily.py
