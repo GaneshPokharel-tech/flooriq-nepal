@@ -14,10 +14,37 @@ from app.broker_auth import (
     audit_event,
 )
 from app.config import Settings
+from app.dependencies import db_conn
+import psycopg
 
 templates = Jinja2Templates(directory="app/templates")
 router = APIRouter(tags=["auth"])
 
+
+def _check_subscription(broker_id: int, conn) -> bool:
+    """Returns True if broker has active trial or subscription."""
+    import datetime
+    today = datetime.date.today()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT is_active, trial_end, subscription_end
+                   FROM public.brokers_subscription WHERE broker_id = %s""",
+                (str(broker_id),)
+            )
+            row = cur.fetchone()
+        if not row:
+            return True  # not in subscription table = unrestricted
+        is_active, trial_end, sub_end = row
+        if not is_active:
+            return False
+        if sub_end and sub_end >= today:
+            return True
+        if trial_end and trial_end >= today:
+            return True
+        return False
+    except Exception:
+        return True  # DB error = allow through
 
 def _safe_next(next_path: str | None) -> str:
     if not next_path:
@@ -92,6 +119,16 @@ async def login_submit(
         return JSONResponse({"ok": False, "error": err}, status_code=401)
 
     token = sign_session(bid)
+    # Subscription check
+    try:
+        from app.database import get_conn
+        with get_conn() as _conn:
+            allowed = _check_subscription(bid, _conn)
+        if not allowed:
+            return JSONResponse({"ok": True, "next": "/renew"})
+    except Exception:
+        pass
+
     resp = JSONResponse({"ok": True, "next": next_path})
 
     secure = (s.app_env == "prod")
