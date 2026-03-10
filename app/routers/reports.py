@@ -3,6 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 from typing import Optional
 from decimal import Decimal
+import json
 
 import psycopg
 from fastapi import APIRouter, Depends, Request
@@ -21,6 +22,18 @@ def _fnum(v):
         return v
 
 
+def _fmt(v, decimals=2):
+    try:
+        f = float(v)
+        if abs(f) >= 1e7:
+            return f"{f / 1e7:.2f} Cr"
+        if abs(f) >= 1e5:
+            return f"{f / 1e5:.2f} L"
+        return f"{f:,.{decimals}f}"
+    except Exception:
+        return str(v) if v is not None else "-"
+
+
 @router.get("/reports/broker/{broker_id}.pdf")
 async def broker_report_pdf(
     request: Request,
@@ -30,12 +43,14 @@ async def broker_report_pdf(
     redis=Depends(redis_client),
     _=Depends(enforce_broker_access),
 ):
-    # Minimal broker report PDF (Phase 1: no DB changes)
     with conn.cursor() as cur:
+        # Latest date
         if business_date is None:
             cur.execute("SELECT MAX(business_date) FROM public.broker_daily_features")
-            business_date = cur.fetchone()[0]
+            row0 = cur.fetchone()
+            business_date = row0[0] if row0 else None
 
+        # Summary row
         cur.execute(
             """
             SELECT
@@ -46,162 +61,367 @@ async def broker_report_pdf(
               trades_buy_count, trades_sell_count,
               avg_buy_price, avg_sell_price
             FROM public.broker_daily_features
-            WHERE business_date=%s AND broker_id=%s
+            WHERE business_date = %s AND broker_id = %s
             """,
             (business_date, str(broker_id)),
         )
         row = cur.fetchone()
         if not row:
-            # keep response valid PDF-ish message
             row = (business_date, str(broker_id), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
         keys = [
-            "business_date","broker_id",
-            "total_buy_qty","total_sell_qty","total_buy_amount","total_sell_amount",
-            "net_qty","net_amount",
-            "unique_symbols_buy","unique_symbols_sell",
-            "trades_buy_count","trades_sell_count",
-            "avg_buy_price","avg_sell_price",
+            "business_date", "broker_id",
+            "total_buy_qty", "total_sell_qty", "total_buy_amount", "total_sell_amount",
+            "net_qty", "net_amount",
+            "unique_symbols_buy", "unique_symbols_sell",
+            "trades_buy_count", "trades_sell_count",
+            "avg_buy_price", "avg_sell_price",
         ]
         summary = dict(zip(keys, row))
 
-        # top symbols by buy amount
+        # Total buy amount
         cur.execute(
-            """
-            SELECT COALESCE(SUM(amount), 0)::numeric
-            FROM public.trades
-            WHERE business_date=%s AND buyer_member_id=%s
-            """,
+            "SELECT COALESCE(SUM(amount), 0)::numeric FROM public.trades "
+            "WHERE business_date = %s AND buyer_member_id = %s",
             (business_date, str(broker_id)),
         )
-        total_buy_amt = cur.fetchone()[0] or Decimal("0")
+        _row = cur.fetchone()
+        total_buy_amt = (_row[0] if _row is not None else None) or Decimal("0")
 
+        # Top symbols
         cur.execute(
             """
             SELECT stock_symbol, SUM(amount)::numeric AS amt
             FROM public.trades
-            WHERE business_date=%s AND buyer_member_id=%s
-            GROUP BY stock_symbol
-            ORDER BY amt DESC
-            LIMIT 10
+            WHERE business_date = %s AND buyer_member_id = %s
+            GROUP BY stock_symbol ORDER BY amt DESC LIMIT 10
             """,
             (business_date, str(broker_id)),
         )
-        top_rows = cur.fetchall()
-
         top_symbols = []
-        for sym, amt in top_rows:
-            pct = float((amt / total_buy_amt) * 100) if total_buy_amt and total_buy_amt != 0 else 0.0
+        for sym, amt in cur.fetchall():
+            pct = float(amt / total_buy_amt * 100) if total_buy_amt else 0.0
             top_symbols.append((sym, float(amt or 0), round(pct, 2)))
 
-        # anomalies (broker)
+        # HHI
+        cur.execute(
+            "SELECT SUM(amount)::numeric FROM public.trades "
+            "WHERE business_date = %s AND buyer_member_id = %s "
+            "GROUP BY stock_symbol",
+            (business_date, str(broker_id)),
+        )
+        hhi = 0.0
+        if total_buy_amt:
+            for (a,) in cur.fetchall():
+                share = float(a / total_buy_amt)
+                hhi += share * share
+            hhi *= 10000.0
+
+        top1_pct = top_symbols[0][2] if top_symbols else 0.0
+        if hhi >= 2500 or top1_pct >= 40:
+            risk = "HIGH"
+        elif hhi >= 1500 or top1_pct >= 25:
+            risk = "MEDIUM"
+        else:
+            risk = "LOW"
+
+        # Anomalies
         cur.execute(
             """
             SELECT anomaly_type, score, details
             FROM public.anomalies
-            WHERE business_date=%s AND entity_type='broker' AND entity_id=%s
-            ORDER BY score DESC
-            LIMIT 20
+            WHERE business_date = %s AND entity_type = 'broker' AND entity_id = %s
+            ORDER BY score DESC LIMIT 20
             """,
             (business_date, str(broker_id)),
         )
         arows = cur.fetchall()
 
-    # build PDF using fpdf2 (lightweight; safe for Railway boot)
+    # ── PDF ───────────────────────────────────────────────────────────────────
     try:
         from fpdf import FPDF
-    except Exception as e:
-        # keep API alive even if PDF deps missing
-        raise RuntimeError(f"PDF dependency missing: {type(e).__name__}")
+    except Exception as exc:
+        raise RuntimeError(f"PDF dependency missing: {exc}") from exc
 
-    class _PDF(FPDF):
+    # Colors
+    C_BG      = (8,   12,  16)
+    C_SURFACE = (15,  25,  35)
+    C_GREEN   = (0,   208, 132)
+    C_AMBER   = (245, 166, 35)
+    C_RED     = (255, 77,  77)
+    C_TEXT    = (226, 232, 240)
+    C_MUTED   = (100, 116, 139)
+
+    risk_color = C_RED if risk == "HIGH" else (C_AMBER if risk == "MEDIUM" else C_GREEN)
+
+    # ── Custom PDF class ──────────────────────────────────────────────────────
+    class FloorIQPDF(FPDF):
         def header(self):
-            self.set_font("Helvetica", "B", 12)
-            self.cell(0, 8, "FloorIQ Nepal — Broker Report (Analytics only)", ln=1)
-            self.set_font("Helvetica", "", 9)
-            self.multi_cell(
-                0,
-                5,
-                "SEBON Disclaimer: Analytics only, no trading advice. Descriptive insights based on public floorsheet data.",
-            )
-            self.ln(2)
+            # Dark header bg
+            self.set_fill_color(*C_BG)
+            self.rect(0, 0, 210, 22, "F")
+            # Green left stripe
+            self.set_fill_color(*C_GREEN)
+            self.rect(0, 0, 4, 22, "F")
+            # Text
+            self.set_xy(10, 7)
+            self.set_text_color(*C_GREEN)
+            self.set_font("Helvetica", "B", 13)
+            self.cell(32, 8, "FloorIQ")
+            self.set_text_color(*C_MUTED)
+            self.set_font("Helvetica", "", 10)
+            self.cell(0, 8, " Nepal  \u2014  Broker Intelligence Report")
+            self.set_y(24)
 
-    pdf = _PDF(orientation="P", unit="mm", format="A4")
-    pdf.set_auto_page_break(auto=True, margin=15)
+        def footer(self):
+            self.set_y(-12)
+            self.set_fill_color(*C_BG)
+            self.rect(0, self.get_y(), 210, 12, "F")
+            self.set_text_color(*C_MUTED)
+            self.set_font("Helvetica", "", 8)
+            self.cell(
+                0, 8,
+                f"Analytics only. No trading advice. NEPSE public floorsheet data.   "
+                f"Page {self.page_no()}",
+                align="C",
+            )
+
+        def section_title(self, title: str):
+            self.ln(5)
+            y = self.get_y()
+            self.set_fill_color(*C_SURFACE)
+            self.rect(10, y, 190, 8, "F")
+            self.set_fill_color(*C_GREEN)
+            self.rect(10, y, 3, 8, "F")
+            self.set_xy(15, y)
+            self.set_text_color(*C_GREEN)
+            self.set_font("Helvetica", "B", 9)
+            self.cell(0, 8, title.upper())
+            self.ln(10)
+
+        def kv_row(self, key: str, value: str, shade: bool = False):
+            y = self.get_y()
+            if shade:
+                self.set_fill_color(*C_SURFACE)
+                self.rect(10, y, 190, 7, "F")
+            self.set_xy(13, y)
+            self.set_text_color(*C_MUTED)
+            self.set_font("Helvetica", "", 9)
+            self.cell(85, 7, key)
+            self.set_text_color(*C_TEXT)
+            self.set_font("Helvetica", "B", 9)
+            self.cell(0, 7, str(value))
+            self.ln()
+
+    pdf = FloorIQPDF(orientation="P", unit="mm", format="A4")
+    pdf.set_auto_page_break(auto=True, margin=18)
+    pdf.set_margins(10, 26, 10)
     pdf.add_page()
 
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, f"Broker {broker_id}  |  Business date: {summary.get('business_date')}", ln=1)
-    pdf.ln(1)
+    # ── TITLE BLOCK ───────────────────────────────────────────────────────────
+    y_t = 26
+    pdf.set_fill_color(*C_SURFACE)
+    pdf.rect(10, y_t, 190, 22, "F")
+    pdf.set_fill_color(*C_GREEN)
+    pdf.rect(10, y_t, 3, 22, "F")
 
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(0, 6, "Summary", ln=1)
-    pdf.set_font("Helvetica", "", 10)
+    # Sub label
+    pdf.set_xy(16, y_t + 2)
+    pdf.set_text_color(*C_MUTED)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.cell(0, 5, "BROKER ANALYTICS REPORT")
 
-    def line(k, v):
-        pdf.cell(0, 5, f"{k}: {v}", ln=1)
+    # Broker name
+    pdf.set_xy(16, y_t + 8)
+    pdf.set_text_color(*C_TEXT)
+    pdf.set_font("Helvetica", "B", 15)
+    pdf.cell(120, 8, f"Broker #{broker_id}")
 
-    line("Net amount", _fnum(summary.get("net_amount")))
-    line("Total buy amount", _fnum(summary.get("total_buy_amount")))
-    line("Total sell amount", _fnum(summary.get("total_sell_amount")))
-    line("Trades (buy)", _fnum(summary.get("trades_buy_count")))
-    line("Trades (sell)", _fnum(summary.get("trades_sell_count")))
-    line("Unique symbols (buy)", _fnum(summary.get("unique_symbols_buy")))
-    line("Unique symbols (sell)", _fnum(summary.get("unique_symbols_sell")))
+    # Risk badge
+    pdf.set_xy(152, y_t + 6)
+    pdf.set_fill_color(*risk_color)
+    pdf.set_text_color(*C_BG)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.cell(46, 10, f"RISK: {risk}", align="C", fill=True)
 
-    pdf.ln(2)
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(0, 6, "Top symbols (buy)", ln=1)
-    pdf.set_font("Helvetica", "", 10)
+    # Date / HHI
+    pdf.set_xy(16, y_t + 17)
+    pdf.set_text_color(*C_MUTED)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.cell(
+        0, 5,
+        f"Date: {summary.get('business_date')}   |   HHI: {hhi:.0f}   |   Top1: {top1_pct:.1f}%",
+    )
+
+    # Disclaimer
+    pdf.set_xy(10, y_t + 26)
+    pdf.set_text_color(*C_MUTED)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.multi_cell(
+        190, 5,
+        "SEBON Safe: Descriptive market analytics only. "
+        "Does not constitute investment advice or trading recommendations.",
+    )
+
+    # ── SUMMARY ───────────────────────────────────────────────────────────────
+    pdf.section_title("Daily Summary")
+
+    rows_kv = [
+        ("Net Amount",            _fmt(summary.get("net_amount"))),
+        ("Total Buy Amount",      _fmt(summary.get("total_buy_amount"))),
+        ("Total Sell Amount",     _fmt(summary.get("total_sell_amount"))),
+        ("Total Buy Qty",         _fmt(summary.get("total_buy_qty"), 0)),
+        ("Total Sell Qty",        _fmt(summary.get("total_sell_qty"), 0)),
+        ("Trades (Buy)",          str(int(_fnum(summary.get("trades_buy_count")) or 0))),
+        ("Trades (Sell)",         str(int(_fnum(summary.get("trades_sell_count")) or 0))),
+        ("Unique Symbols (Buy)",  str(int(_fnum(summary.get("unique_symbols_buy")) or 0))),
+        ("Unique Symbols (Sell)", str(int(_fnum(summary.get("unique_symbols_sell")) or 0))),
+        ("Avg Buy Price",         _fmt(summary.get("avg_buy_price"))),
+        ("Avg Sell Price",        _fmt(summary.get("avg_sell_price"))),
+    ]
+    for i, (k, v) in enumerate(rows_kv):
+        pdf.kv_row(k, v, shade=(i % 2 == 0))
+
+    # ── TOP SYMBOLS ───────────────────────────────────────────────────────────
+    pdf.section_title("Top Symbols (Buy Side)")
 
     if not top_symbols:
-        pdf.cell(0, 5, "No data", ln=1)
+        pdf.set_text_color(*C_MUTED)
+        pdf.set_font("Helvetica", "", 9)
+        pdf.cell(0, 6, "No data available")
+        pdf.ln()
     else:
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(30, 6, "Symbol", border=0)
-        pdf.cell(45, 6, "Amount", border=0)
-        pdf.cell(25, 6, "Share %", border=0, ln=1)
-        pdf.set_font("Helvetica", "", 10)
-        for sym, amt, pct in top_symbols[:10]:
-            pdf.cell(30, 5, str(sym), border=0)
-            pdf.cell(45, 5, f"{amt:,.2f}", border=0)
-            pdf.cell(25, 5, f"{pct:.2f}%", border=0, ln=1)
+        # Header row
+        y = pdf.get_y()
+        pdf.set_fill_color(*C_BG)
+        pdf.rect(10, y, 190, 7, "F")
+        pdf.set_xy(13, y)
+        pdf.set_text_color(*C_MUTED)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.cell(28, 7, "SYMBOL")
+        pdf.cell(65, 7, "AMOUNT")
+        pdf.cell(32, 7, "SHARE %")
+        pdf.cell(0,  7, "BAR")
+        pdf.ln()
 
-    pdf.ln(2)
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(0, 6, "Anomalies (broker)", ln=1)
-    pdf.set_font("Helvetica", "", 10)
+        for i, (sym, amt, pct) in enumerate(top_symbols[:10]):
+            y = pdf.get_y()
+            if i % 2 == 0:
+                pdf.set_fill_color(*C_SURFACE)
+                pdf.rect(10, y, 190, 7, "F")
+            pdf.set_xy(13, y)
+            pdf.set_text_color(*C_GREEN)
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.cell(28, 7, str(sym))
+            pdf.set_text_color(*C_TEXT)
+            pdf.set_font("Helvetica", "", 9)
+            pdf.cell(65, 7, f"Rs. {amt:,.2f}")
+            pdf.cell(32, 7, f"{pct:.2f}%")
+            # Mini bar
+            bx = pdf.get_x()
+            bw = min(pct / 100 * 50, 50)
+            if bw > 0.5:
+                pdf.set_fill_color(*C_GREEN)
+                pdf.rect(bx, y + 2, bw, 3, "F")
+            pdf.ln()
+
+    # ── ANOMALIES ─────────────────────────────────────────────────────────────
+    pdf.section_title("Anomaly Detection Flags")
+
+    ANOM_LABELS = {
+        "wash_pair_roundtrip":         ("Wash Trading - Round Trip",     C_RED),
+        "wash_counterparty_dominance": ("Counterparty Dominance",        (168, 85, 247)),
+        "broker_net_amount_spike":     ("Net Amount Spike (Z-Score)",    C_AMBER),
+        "symbol_turnover_spike":       ("Turnover Spike (Z-Score)",      C_AMBER),
+        "self_trade_heavy":            ("Self Trade Heavy",              (59, 130, 246)),
+        "isolation_forest_anomaly":    ("ML Anomaly - Isolation Forest", C_GREEN),
+    }
 
     if not arows:
-        pdf.cell(0, 5, "No anomalies", ln=1)
+        y = pdf.get_y()
+        pdf.set_fill_color(10, 28, 18)
+        pdf.rect(10, y, 190, 8, "F")
+        pdf.set_xy(13, y)
+        pdf.set_text_color(*C_GREEN)
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.cell(0, 8, "No anomalies detected for this date.")
+        pdf.ln()
     else:
         for atype, score, details in arows:
-            d = (details or "")
-            d = d.replace("\n", " ")
-            try:
-                d = str(d)
-            except Exception:
-                d = ""
-            pdf.set_font("Helvetica", "B", 9)
-            pdf.multi_cell(0, 5, f"{atype} | score={float(score):.2f}")
-            pdf.set_font("Helvetica", "", 9)
-            pdf.multi_cell(0, 5, d[:240])
-            pdf.ln(1)
+            label, acolor = ANOM_LABELS.get(atype, (str(atype), C_MUTED))
+            score_f = float(score)
 
-    _out = pdf.output(dest="S")
-    if isinstance(_out, (bytes, bytearray)):
-        pdf_bytes = bytes(_out)
-    else:
-        pdf_bytes = str(_out).encode("latin-1")
-    buf = BytesIO(pdf_bytes)
+            y = pdf.get_y()
+            pdf.set_fill_color(*C_SURFACE)
+            pdf.rect(10, y, 190, 15, "F")
+            pdf.set_fill_color(*acolor)
+            pdf.rect(10, y, 3, 15, "F")
+
+            pdf.set_xy(15, y + 2)
+            pdf.set_text_color(*acolor)
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.cell(120, 5, label)
+
+            pdf.set_xy(158, y + 2)
+            pdf.set_fill_color(*acolor)
+            pdf.set_text_color(*C_BG)
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.cell(40, 5, f"Score: {score_f:.3f}", align="C", fill=True)
+
+            # Details
+            pdf.set_xy(15, y + 9)
+            pdf.set_text_color(*C_MUTED)
+            pdf.set_font("Helvetica", "", 8)
+            det_str = ""
+            try:
+                if isinstance(details, dict):
+                    d = details
+                elif isinstance(details, str):
+                    d = json.loads(details)
+                else:
+                    d = {}
+                parts = []
+                if d.get("counterparty"):
+                    parts.append(f"Counterparty: Broker {d['counterparty']}")
+                if d.get("symbol"):
+                    parts.append(f"Symbol: {d['symbol']}")
+                if d.get("balance_ratio"):
+                    parts.append(f"Balance: {float(d['balance_ratio']):.2f}")
+                if d.get("if_score"):
+                    parts.append(f"IF Score: {float(d['if_score']):.3f}")
+                if d.get("z"):
+                    parts.append(f"Z: {float(d['z']):.2f}")
+                det_str = "  |  ".join(parts) if parts else ""
+            except Exception:
+                det_str = ""
+            pdf.cell(0, 4, det_str[:110])
+            pdf.ln(6)
+
+    # ── CLOSING NOTE ──────────────────────────────────────────────────────────
+    pdf.ln(4)
+    pdf.set_xy(10, pdf.get_y())
+    pdf.set_text_color(*C_MUTED)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.multi_cell(
+        190, 5,
+        "Generated by FloorIQ Nepal. For informational purposes only. "
+        "Risk scores are heuristic-based and not a definitive assessment of broker conduct.",
+    )
+
+    # ── Stream response ────────────────────────────────────────────────────────
+    # fpdf2 v2: output() returns bytearray directly — no dest= parameter
+    raw = pdf.output()
+    buf = BytesIO(bytes(raw))
     buf.seek(0)
 
-    await audit_event(redis, int(broker_id), "download_pdf", request, {"business_date": str(summary.get("business_date"))})
+    await audit_event(
+        redis, int(broker_id), "download_pdf", request,
+        {"business_date": str(summary.get("business_date"))},
+    )
 
     filename = f"flooriq_broker_{broker_id}_{summary.get('business_date')}.pdf"
     return StreamingResponse(
         buf,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename=\"{filename}\"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
-
