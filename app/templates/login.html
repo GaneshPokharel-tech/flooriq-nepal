@@ -1,755 +1,655 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>FloorIQ Nepal — Broker Login</title>
-
-  <!-- Fonts (allowed) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <style>
-    :root{
-      --bg:#080c10;
-      --panel:#0b1118;
-      --panel2:#0a0f16;
-      --border:rgba(255,255,255,.08);
-      --muted:rgba(255,255,255,.70);
-      --muted2:rgba(255,255,255,.55);
-      --text:rgba(255,255,255,.92);
-      --accent:#00d084;
-      --danger:#ff4d6d;
-      --shadow: 0 18px 55px rgba(0,0,0,.45);
-      --radius: 18px;
+    :root {
+      --bg:       #080c10;
+      --surface:  #0d1117;
+      --card:     #0f1923;
+      --border:   #1c2430;
+      --green:    #00d084;
+      --green-dim:#00d08422;
+      --amber:    #f5a623;
+      --red:      #ff4d4d;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      overflow: hidden;
     }
 
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;
-      background:var(--bg);
-      color:var(--text);
-      font-family:"DM Sans", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      overflow-x:hidden;
+    /* ── LEFT PANEL ── */
+    .left {
+      width: 55%;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px 56px 0;
+      border-right: 1px solid var(--border);
+      overflow: hidden;
     }
 
-    .page{
-      min-height:100%;
-      display:grid;
-      grid-template-columns: 1.2fr .9fr;
+    /* Animated grid background */
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: 0.4;
+      animation: gridDrift 24s linear infinite;
+    }
+    @keyframes gridDrift {
+      0%   { transform: translate(0, 0); }
+      100% { transform: translate(48px, 48px); }
     }
 
-    /* LEFT */
-    .left{
-      position:relative;
-      padding: clamp(18px, 3.2vw, 44px);
-      overflow:hidden;
-      border-right:1px solid var(--border);
-      background:
-        radial-gradient(900px 500px at 20% 20%, rgba(0,208,132,.14), transparent 55%),
-        radial-gradient(700px 420px at 70% 30%, rgba(0,208,132,.10), transparent 55%),
-        radial-gradient(800px 500px at 50% 90%, rgba(255,255,255,.05), transparent 60%),
-        var(--bg);
+    /* Green glow blob */
+    .glow {
+      position: absolute;
+      width: 500px; height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #00d08414 0%, transparent 70%);
+      top: -80px; left: -80px;
+      pointer-events: none;
     }
 
-    /* animated grid */
-    .grid{
-      position:absolute; inset:-50%;
-      background:
-        linear-gradient(rgba(0,208,132,.10) 1px, transparent 1px) 0 0/36px 36px,
-        linear-gradient(90deg, rgba(0,208,132,.10) 1px, transparent 1px) 0 0/36px 36px;
-      transform: rotate(14deg);
-      opacity:.22;
-      animation: gridFloat 14s linear infinite;
-      filter: drop-shadow(0 0 12px rgba(0,208,132,.15));
-      pointer-events:none;
-    }
-    .grid::after{
-      content:"";
-      position:absolute; inset:0;
-      background: radial-gradient(closest-side, rgba(0,208,132,.20), transparent 60%);
-      opacity:.35;
-      animation: glowPulse 6s ease-in-out infinite;
-    }
-    @keyframes gridFloat{
-      0%{ transform: rotate(14deg) translate3d(0,0,0); }
-      100%{ transform: rotate(14deg) translate3d(120px, 90px, 0); }
-    }
-    @keyframes glowPulse{
-      0%,100%{ opacity:.18; }
-      50%{ opacity:.45; }
-    }
-
-    .brand{
-      position:relative;
-      display:flex;
-      align-items:center;
-      gap:12px;
-      margin-bottom: 18px;
-      z-index:1;
-    }
-    .logo{
-      width:42px;height:42px;border-radius:12px;
-      background: linear-gradient(135deg, rgba(0,208,132,.25), rgba(0,208,132,.06));
-      border:1px solid rgba(0,208,132,.25);
-      box-shadow: 0 10px 28px rgba(0,208,132,.10);
-      display:grid;place-items:center;
-      font-family:"Space Mono", monospace;
-      letter-spacing:.5px;
-      color:var(--accent);
-      font-weight:700;
-    }
-    .brand h1{
-      margin:0;
-      font-size: clamp(18px, 2.2vw, 26px);
-      font-weight:700;
-      line-height:1.1;
-    }
-    .brand p{
-      margin:4px 0 0;
-      color:var(--muted);
-      font-size: 14px;
-    }
-
-    /* ticker */
-    .tickerWrap{
-      position:relative;
-      z-index:1;
-      margin: 14px 0 18px;
-      border:1px solid var(--border);
-      border-radius: 999px;
-      overflow:hidden;
-      background: rgba(10,15,22,.55);
-      box-shadow: 0 10px 34px rgba(0,0,0,.25);
-    }
-    .ticker{
-      display:flex;
-      gap:26px;
-      white-space:nowrap;
-      padding: 10px 14px;
-      animation: tickerMove 22s linear infinite;
-      will-change: transform;
-    }
-    .ticker:hover{ animation-play-state: paused; }
-    @keyframes tickerMove{
-      0%{ transform: translateX(0); }
-      100%{ transform: translateX(-50%); }
-    }
-    .tickItem{
-      display:flex;align-items:center;gap:10px;
-      font-family:"Space Mono", monospace;
-      font-size: 12.5px;
-      color: rgba(255,255,255,.86);
-    }
-    .dot{
-      width:8px;height:8px;border-radius:50%;
-      background: var(--accent);
-      box-shadow: 0 0 0 3px rgba(0,208,132,.16);
-    }
-    .chgUp{ color: var(--accent); }
-    .chgDn{ color: #ff6b7a; }
-
-    /* Cards row */
-    .cards{
-      position:relative;
-      z-index:1;
-      display:grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
-      margin-top: 16px;
-    }
-    .card{
-      background: rgba(11,17,24,.65);
-      border:1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
-      min-height: 94px;
-    }
-    .k{
-      font-size: 12px;
-      color: var(--muted2);
-      display:flex;align-items:center;justify-content:space-between;
-      gap:10px;
-    }
-    .v{
-      margin-top:10px;
-      font-family:"Space Mono", monospace;
-      font-size: 18px;
-      font-weight:700;
-      letter-spacing:.2px;
-      color: rgba(255,255,255,.92);
-    }
-    .sub{
-      margin-top:6px;
-      font-size: 12.5px;
-      color: var(--muted);
-      line-height:1.35;
-    }
-    .pill{
-      font-family:"Space Mono", monospace;
-      font-size: 11px;
-      padding: 4px 8px;
-      border-radius: 999px;
-      border:1px solid rgba(0,208,132,.28);
-      color: var(--accent);
-      background: rgba(0,208,132,.08);
-    }
-
-    /* HHI panel */
-    .hhi{
-      position:relative;
-      z-index:1;
-      margin-top: 14px;
-      background: rgba(11,17,24,.65);
-      border:1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
-    }
-    .hhiTop{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom: 8px;
-    }
-    .hhiTop .title{
-      font-weight:700;
-      letter-spacing:.2px;
-    }
-    .hhiTop .meta{
-      font-family:"Space Mono", monospace;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .sparkWrap{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 14px;
-    }
-    canvas{
-      width: 100%;
-      max-width: 420px;
-      height: 70px;
-      display:block;
-      border-radius: 12px;
-      border:1px solid rgba(255,255,255,.06);
-      background: rgba(8,12,16,.40);
-    }
-    .hhiSide{
-      min-width: 150px;
-      text-align:right;
-    }
-    .hhiSide .big{
-      font-family:"Space Mono", monospace;
-      font-weight:700;
-      font-size: 22px;
-      color: rgba(255,255,255,.92);
-    }
-    .hhiSide .label{
-      margin-top:4px;
-      font-size: 12.5px;
-      color: var(--muted);
-    }
-
-    .leftFooter{
-      position:relative;
-      z-index:1;
-      margin-top: 18px;
-      color: rgba(255,255,255,.70);
-      font-size: 12.5px;
-      line-height: 1.45;
-      max-width: 62ch;
-    }
-    .leftFooter strong{ color: rgba(255,255,255,.92); }
-
-    /* RIGHT */
-    .right{
-      padding: clamp(18px, 3vw, 44px);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background:
-        radial-gradient(700px 500px at 50% 25%, rgba(0,208,132,.10), transparent 60%),
-        radial-gradient(800px 500px at 50% 90%, rgba(255,255,255,.04), transparent 60%),
-        var(--panel2);
-    }
-    .auth{
-      width: 100%;
-      max-width: 430px;
-      border:1px solid var(--border);
-      background: rgba(11,17,24,.78);
-      border-radius: 22px;
-      padding: 22px;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(14px);
-    }
-    .authHead{
-      margin-bottom: 14px;
-    }
-    .authHead h2{
-      margin:0;
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: .2px;
-    }
-    .authHead p{
-      margin:8px 0 0;
-      color: var(--muted);
-      font-size: 13.5px;
-      line-height: 1.45;
-    }
-
-    .error{
-      display:none;
-      margin: 12px 0 0;
-      border:1px solid rgba(255,77,109,.35);
-      background: rgba(255,77,109,.10);
-      color: rgba(255,255,255,.92);
-      padding: 10px 12px;
-      border-radius: 14px;
-      font-size: 13px;
-      line-height:1.35;
-    }
-    .error strong{ color: #ffd2da; }
-
-    form{
-      margin-top: 16px;
-      display:grid;
+    /* ── BRAND ── */
+    .brand {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
       gap: 12px;
     }
-    label{
-      display:block;
-      font-size: 12px;
-      color: var(--muted2);
-      margin: 0 0 6px;
+    .brand-icon {
+      width: 34px; height: 34px;
+      border: 1.5px solid var(--green);
+      border-radius: 8px;
+      position: relative;
+      flex-shrink: 0;
     }
-    .field{
-      background: rgba(8,12,16,.55);
-      border:1px solid rgba(255,255,255,.10);
-      border-radius: 14px;
-      padding: 12px 12px;
-      display:flex;
-      gap:10px;
-      align-items:center;
-      transition: border-color .15s ease, box-shadow .15s ease;
+    .brand-icon::before {
+      content: '';
+      position: absolute;
+      inset: 4px;
+      background: var(--green);
+      clip-path: polygon(0 100%, 30% 50%, 55% 70%, 80% 20%, 100% 40%, 100% 100%);
     }
-    .field:focus-within{
-      border-color: rgba(0,208,132,.45);
-      box-shadow: 0 0 0 4px rgba(0,208,132,.10);
+    .brand-name {
+      font-family: 'Space Mono', monospace;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
     }
-    input{
-      width:100%;
-      border:none;
-      outline:none;
-      background: transparent;
-      color: rgba(255,255,255,.92);
+    .brand-name span { color: var(--green); }
+    .brand-tag {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    /* ── HERO TEXT ── */
+    .hero {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 28px;
+    }
+    .hero h1 {
+      font-size: 40px;
+      font-weight: 300;
+      line-height: 1.2;
+      letter-spacing: -1.5px;
+    }
+    .hero h1 strong {
+      font-weight: 600;
+      color: var(--green);
+      display: block;
+    }
+    .hero p {
       font-size: 15px;
-      font-family:"Space Mono", monospace;
-      letter-spacing:.2px;
-    }
-    input::placeholder{ color: rgba(255,255,255,.35); }
-
-    .hint{
-      font-size: 12px;
-      color: rgba(255,255,255,.55);
-      line-height: 1.45;
-      margin-top: 2px;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 380px;
     }
 
-    .btn{
-      margin-top: 4px;
-      width:100%;
-      border:none;
-      border-radius: 14px;
-      padding: 12px 14px;
-      background: linear-gradient(135deg, rgba(0,208,132,1), rgba(0,208,132,.75));
-      color: #04120b;
-      font-weight: 800;
+    /* ── STAT ROW ── */
+    .stats {
+      display: flex;
+      gap: 14px;
+      position: relative;
+      z-index: 1;
+    }
+    .stat {
+      flex: 1;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      transition: border-color 0.2s;
+    }
+    .stat:hover { border-color: #2a3a4a; }
+    .stat-k {
+      font-size: 10px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .stat-v {
+      font-family: 'Space Mono', monospace;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .stat-v.g { color: var(--green); }
+    .stat-v.a { color: var(--amber); }
+    .stat-v.r { color: var(--red); }
+    .stat-sub { font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+    /* ── MINI CHART ── */
+    .chart-card {
+      position: relative;
+      z-index: 1;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px 14px;
+    }
+    .chart-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .chart-label {
+      font-size: 10px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .chart-val {
+      font-family: 'Space Mono', monospace;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--amber);
+    }
+    .chart-badge {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--red);
+      background: #ff4d4d12;
+      border: 1px solid #ff4d4d30;
+      border-radius: 20px;
+      padding: 3px 9px;
+    }
+
+    /* ── TICKER ── */
+    .ticker-wrap {
+      position: relative;
+      z-index: 2;
+      overflow: hidden;
+      padding: 10px 0;
+      border-top: 1px solid var(--border);
+      margin: 0 -56px;
+      background: linear-gradient(90deg, var(--bg), transparent 8%, transparent 92%, var(--bg));
+    }
+    .ticker {
+      display: flex;
+      gap: 40px;
+      animation: tickMove 28s linear infinite;
+      white-space: nowrap;
+      padding: 0 56px;
+    }
+    @keyframes tickMove { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .tick-item {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      gap: 6px;
+    }
+    .tick-item .up { color: var(--green); }
+    .tick-item .dn { color: var(--red); }
+
+    /* ── RIGHT PANEL ── */
+    .right {
+      width: 45%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 52px;
+      position: relative;
+    }
+    .right::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 80% 20%, #00d08408 0%, transparent 55%);
+      pointer-events: none;
+    }
+
+    .login-box {
+      width: 100%;
+      max-width: 380px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Live badge */
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--green-dim);
+      border: 1px solid #00d08440;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--green);
+      letter-spacing: 0.4px;
+      margin-bottom: 20px;
+    }
+    .live-dot {
+      width: 6px; height: 6px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.4; transform: scale(0.75); }
+    }
+
+    .login-box h2 {
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+    .login-box .sub {
       font-size: 14px;
-      cursor:pointer;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      transition: transform .06s ease, filter .15s ease;
+      color: var(--muted);
+      margin-bottom: 32px;
     }
-    .btn:active{ transform: translateY(1px); }
-    .btn:disabled{
-      cursor:not-allowed;
-      filter: saturate(.9) brightness(.9);
-    }
-    .spinner{
-      width:16px;height:16px;
-      border-radius:50%;
-      border:2px solid rgba(4,18,11,.35);
-      border-top-color: rgba(4,18,11,.95);
-      display:none;
-      animation: spin .9s linear infinite;
-    }
-    @keyframes spin{ to { transform: rotate(360deg);} }
 
-    .metaRow{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
+    /* Error box */
+    #login-error {
+      background: #ff4d4d12;
+      border: 1px solid #ff4d4d40;
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-size: 13px;
+      color: var(--red);
+      margin-bottom: 16px;
+      display: none;
+    }
+    #login-error.show { display: block; }
+
+    /* Form */
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 7px;
+    }
+    .input-wrap { position: relative; }
+    .input-icon {
+      position: absolute;
+      left: 13px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px 12px 40px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input::placeholder { color: var(--muted); }
+    input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px #00d08418;
+    }
+
+    .form-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 22px;
+    }
+    .remember {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .remember input[type="checkbox"] {
+      width: 15px; height: 15px;
+      accent-color: var(--green);
+      padding: 0;
+    }
+    .forgot { font-size: 13px; color: var(--green); text-decoration: none; }
+    .forgot:hover { text-decoration: underline; }
+
+    /* Submit button */
+    .btn-login {
+      width: 100%;
+      background: var(--green);
+      color: #080c10;
+      border: none;
+      border-radius: 8px;
+      padding: 13px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.2px;
+      transition: opacity 0.15s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-login:hover { opacity: 0.88; }
+    .btn-login:active { transform: scale(0.99); }
+    .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .spinner {
+      display: none;
+      width: 17px; height: 17px;
+      border: 2px solid #08080840;
+      border-top-color: #080c10;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Divider */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 26px 0 18px;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .divider span { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+    /* Info box */
+    .info-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex;
       gap: 10px;
-      margin-top: 10px;
-      font-size: 12px;
-      color: rgba(255,255,255,.55);
+      align-items: flex-start;
     }
-    .metaRow a{
-      color: rgba(0,208,132,.95);
-      text-decoration:none;
-    }
-    .metaRow a:hover{ text-decoration: underline; }
+    .info-box svg { flex-shrink: 0; margin-top: 1px; }
+    .info-box p { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+    .info-box p strong { color: var(--text); font-weight: 500; }
 
-    .legal{
-      margin-top: 14px;
-      font-size: 11.5px;
-      color: rgba(255,255,255,.50);
-      line-height: 1.5;
-      border-top: 1px solid rgba(255,255,255,.08);
-      padding-top: 12px;
+    /* Footer */
+    .login-footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
     }
+    .login-footer a { color: var(--green); text-decoration: none; }
+
+    /* Animations */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(14px);
+      animation: fadeUp 0.45s ease forwards;
+    }
+    @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+    .d1 { animation-delay: 0.05s; }
+    .d2 { animation-delay: 0.12s; }
+    .d3 { animation-delay: 0.19s; }
+    .d4 { animation-delay: 0.26s; }
+    .d5 { animation-delay: 0.33s; }
 
     /* Responsive */
-    @media (max-width: 980px){
-      .page{ grid-template-columns: 1fr; }
-      .left{ border-right:none; border-bottom:1px solid var(--border); }
-      .cards{ grid-template-columns: 1fr; }
-      .sparkWrap{ flex-direction:column; align-items:stretch; }
-      .hhiSide{ text-align:left; min-width: unset; }
-      canvas{ max-width: 100%; }
-    }
-
-    @media (max-width: 480px){
-      .auth{ padding: 18px; border-radius: 18px; }
-      .tickerWrap{ border-radius: 14px; }
-      .brand p{ font-size: 13px; }
-      .card{ min-height: unset; }
+    @media (max-width: 860px) {
+      .left { display: none; }
+      .right { width: 100%; padding: 32px 24px; }
     }
   </style>
 </head>
-
 <body>
-  <div class="page">
-    <!-- LEFT PANEL -->
-    <section class="left" aria-label="Market overview">
-      <div class="grid" aria-hidden="true"></div>
 
-      <div class="brand">
-        <div class="logo">FIQ</div>
-        <div>
-          <h1>FloorIQ Nepal</h1>
-          <p>Analytics-only dashboard for broker activity & anomalies (SEBON-safe)</p>
-        </div>
-      </div>
+<!-- ═══ LEFT PANEL ═══ -->
+<div class="left">
+  <div class="grid-bg"></div>
+  <div class="glow"></div>
 
-      <!-- Live ticker -->
-      <div class="tickerWrap" role="region" aria-label="NEPSE live ticker (demo)">
-        <div class="ticker" id="ticker">
-          <!-- JS fills + duplicates for seamless scroll -->
-        </div>
-      </div>
-
-      <!-- HHI Sparkline -->
-      <div class="hhi">
-        <div class="hhiTop">
-          <div class="title">HHI Concentration (Buy-side)</div>
-          <div class="meta" id="hhiMeta">last 10 sessions</div>
-        </div>
-        <div class="sparkWrap">
-          <canvas id="hhiCanvas" width="520" height="100" aria-label="HHI sparkline"></canvas>
-          <div class="hhiSide">
-            <div class="big" id="hhiNow">—</div>
-            <div class="label" id="hhiLabel">Loading…</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Stats -->
-      <div class="cards">
-        <div class="card">
-          <div class="k">
-            <span>Latest Business Date</span>
-            <span class="pill" id="pill1">LIVE</span>
-          </div>
-          <div class="v" id="statDate">—</div>
-          <div class="sub">Auto-refresh pipeline + anomaly flags computed from public floorsheet data.</div>
-        </div>
-
-        <div class="card">
-          <div class="k"><span>Signals Today</span><span class="pill">SEBON-safe</span></div>
-          <div class="v" id="statSignals">—</div>
-          <div class="sub">Unusual activity flags (spikes, self-trade, pair roundtrips, dominance).</div>
-        </div>
-
-        <div class="card">
-          <div class="k"><span>Quota (Free)</span><span class="pill">10/day</span></div>
-          <div class="v" id="statQuota">—</div>
-          <div class="sub">Daily request quota enforced for free plan. Paid plans are unlimited.</div>
-        </div>
-      </div>
-
-      <div class="leftFooter">
-        <strong>Disclaimer:</strong> Analytics only. No trading advice. This service provides descriptive insights and anomaly flags based on public floorsheet transactions. It does not provide buy/sell/hold recommendations.
-      </div>
-    </section>
-
-    <!-- RIGHT PANEL -->
-    <section class="right" aria-label="Broker login">
-      <div class="auth">
-        <div class="authHead">
-          <h2>Broker Login</h2>
-          <p>Broker ID र password प्रयोग गरेर dashboard access गर्नुहोस्।</p>
-        </div>
-
-        <div class="error" id="errBox">
-          <strong>Login असफल भयो.</strong> Broker ID वा password गलत हुन सक्छ। फेरि प्रयास गर्नुहोस्।
-        </div>
-
-        <form id="loginForm" action="/login" method="post" autocomplete="on">
-          <input type="hidden" name="next" value="/dashboard" />
-
-          <div>
-            <label for="broker_id">Broker ID</label>
-            <div class="field">
-              <span style="font-family:'Space Mono',monospace;color:rgba(255,255,255,.55);font-size:13px;">ID</span>
-              <input id="broker_id" name="broker_id" inputmode="numeric" autocomplete="username"
-                     placeholder="जस्तै: 45" required />
-            </div>
-            <div class="hint">Tip: Admin ले provision गरेको Broker ID प्रयोग गर्नुहोस्।</div>
-          </div>
-
-          <div>
-            <label for="password">Password</label>
-            <div class="field">
-              <span style="font-family:'Space Mono',monospace;color:rgba(255,255,255,.55);font-size:13px;">••</span>
-              <input id="password" name="password" type="password" autocomplete="current-password"
-                     placeholder="तपाईंको password" required />
-            </div>
-            <div class="hint">Password case-sensitive हुन्छ।</div>
-          </div>
-
-          <button class="btn" id="submitBtn" type="submit">
-            <span class="spinner" id="spinner" aria-hidden="true"></span>
-            <span id="btnText">Sign in</span>
-          </button>
-
-          <div class="metaRow">
-            <span style="font-family:'Space Mono',monospace;">POST /login</span>
-            <a href="/dashboard" onclick="return false;">Need help?</a>
-          </div>
-
-          <div class="legal">
-            SEBON Disclaimer: Analytics only, no trading advice. All outputs are descriptive and based on public floorsheet data.
-          </div>
-        </form>
-      </div>
-    </section>
+  <!-- Brand -->
+  <div class="brand fade-up">
+    <div class="brand-icon"></div>
+    <div>
+      <div class="brand-name">Floor<span>IQ</span> Nepal</div>
+      <div class="brand-tag">NEPSE Broker Intelligence</div>
+    </div>
   </div>
 
-  <script>
-    (function(){
-      // ===== Error via ?error=1 =====
-      const params = new URLSearchParams(window.location.search || "");
-      const errBox = document.getElementById("errBox");
-      if (params.get("error") === "1") {
-        errBox.style.display = "block";
-      }
+  <!-- Hero -->
+  <div class="hero">
+    <div class="fade-up d1">
+      <h1>Nepal's first<strong>automated broker intelligence</strong>tool.</h1>
+      <p style="margin-top:16px;">Real-time analytics, wash trading detection & broker risk scoring — purpose-built for NEPSE.</p>
+    </div>
 
-      // ===== Ticker (demo data; replace later if you want API-driven) =====
-      const tick = [
-        {s:"NABIL", p: 585.2, c:+1.9},
-        {s:"NRIC",  p: 862.0, c:-0.7},
-        {s:"NLIC",  p: 720.4, c:+0.4},
-        {s:"SANVI", p: 510.0, c:+2.1},
-        {s:"HDL",   p: 2450.0, c:-1.3},
-        {s:"HRL",   p: 618.6, c:+0.8},
-        {s:"NGPL",  p: 306.1, c:+1.2},
-        {s:"CIT",   p: 1985.0, c:-0.5},
-        {s:"SHIVM", p: 508.8, c:+0.3},
-        {s:"AKPL",  p: 216.9, c:-0.2},
-      ];
+    <!-- Stats -->
+    <div class="stats fade-up d2">
+      <div class="stat">
+        <div class="stat-k">Active Brokers</div>
+        <div class="stat-v g">50+</div>
+        <div class="stat-sub">Monitored daily</div>
+      </div>
+      <div class="stat">
+        <div class="stat-k">Trades Analyzed</div>
+        <div class="stat-v">1.2M+</div>
+        <div class="stat-sub">This month</div>
+      </div>
+      <div class="stat">
+        <div class="stat-k">Anomalies</div>
+        <div class="stat-v r">247</div>
+        <div class="stat-sub">Flagged this week</div>
+      </div>
+    </div>
 
-      function mkItem(t){
-        const chgCls = t.c >= 0 ? "chgUp" : "chgDn";
-        const sign = t.c >= 0 ? "+" : "";
-        return `
-          <span class="tickItem">
-            <span class="dot"></span>
-            <span>${t.s}</span>
-            <span style="opacity:.75">${Number(t.p).toFixed(1)}</span>
-            <span class="${chgCls}">${sign}${t.c.toFixed(1)}%</span>
-          </span>
-        `;
-      }
+    <!-- HHI Chart -->
+    <div class="chart-card fade-up d3">
+      <div class="chart-top">
+        <div>
+          <div class="chart-label">HHI Concentration Index</div>
+          <div class="chart-val">0.342</div>
+        </div>
+        <span class="chart-badge">▲ 12.4% vs last week</span>
+      </div>
+      <svg viewBox="0 0 380 56" width="100%" height="56" fill="none">
+        <defs>
+          <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#f5a623" stop-opacity="0.28"/>
+            <stop offset="100%" stop-color="#f5a623" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <!-- Grid lines -->
+        <line x1="0" y1="18" x2="380" y2="18" stroke="#1c2430" stroke-width="1"/>
+        <line x1="0" y1="36" x2="380" y2="36" stroke="#1c2430" stroke-width="1"/>
+        <!-- Area -->
+        <path d="M0,46 L27,43 L54,41 L81,38 L108,40 L135,34 L162,30 L189,32 L216,25 L243,27 L270,20 L297,16 L324,12 L351,8 L380,4 L380,56 L0,56Z" fill="url(#cg)"/>
+        <!-- Line -->
+        <path d="M0,46 L27,43 L54,41 L81,38 L108,40 L135,34 L162,30 L189,32 L216,25 L243,27 L270,20 L297,16 L324,12 L351,8 L380,4" stroke="#f5a623" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="380" cy="4" r="4" fill="#f5a623"/>
+      </svg>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;">
+        <span style="font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;">Feb 23</span>
+        <span style="font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;">Mar 9</span>
+      </div>
+    </div>
+  </div>
 
-      // duplicate for seamless move (50% translate)
-      const ticker = document.getElementById("ticker");
-      const html = tick.map(mkItem).join("") + tick.map(mkItem).join("");
-      ticker.innerHTML = html;
+  <!-- Ticker -->
+  <div class="ticker-wrap">
+    <div class="ticker">
+      <span class="tick-item">NABIL <span class="up">▲ 1,420</span> +2.1%</span>
+      <span class="tick-item">NICA <span class="dn">▼ 890</span> -0.8%</span>
+      <span class="tick-item">SCB <span class="up">▲ 2,100</span> +1.4%</span>
+      <span class="tick-item">GBBL <span class="up">▲ 340</span> +3.2%</span>
+      <span class="tick-item">HIDCL <span class="dn">▼ 174</span> -1.1%</span>
+      <span class="tick-item">NTC <span class="up">▲ 870</span> +0.6%</span>
+      <span class="tick-item">ADBL <span class="dn">▼ 512</span> -2.3%</span>
+      <span class="tick-item">PRVU <span class="up">▲ 1,200</span> +1.8%</span>
+      <span class="tick-item">NABIL <span class="up">▲ 1,420</span> +2.1%</span>
+      <span class="tick-item">NICA <span class="dn">▼ 890</span> -0.8%</span>
+      <span class="tick-item">SCB <span class="up">▲ 2,100</span> +1.4%</span>
+      <span class="tick-item">GBBL <span class="up">▲ 340</span> +3.2%</span>
+      <span class="tick-item">HIDCL <span class="dn">▼ 174</span> -1.1%</span>
+      <span class="tick-item">NTC <span class="up">▲ 870</span> +0.6%</span>
+      <span class="tick-item">ADBL <span class="dn">▼ 512</span> -2.3%</span>
+      <span class="tick-item">PRVU <span class="up">▲ 1,200</span> +1.8%</span>
+    </div>
+  </div>
+</div>
 
-      // ===== HHI Sparkline (demo; replace with real broker insights later) =====
-      const canvas = document.getElementById("hhiCanvas");
-      const ctx = canvas.getContext("2d");
+<!-- ═══ RIGHT PANEL ═══ -->
+<div class="right">
+  <div class="login-box">
 
-      function rand(min,max){ return Math.random()*(max-min)+min; }
+    <div class="fade-up">
+      <div class="live-badge">
+        <div class="live-dot"></div>
+        Live Market Data
+      </div>
+      <h2>Broker Portal</h2>
+      <p class="sub">Sign in to access your analytics dashboard</p>
+    </div>
 
-      // Generate plausible HHI time series: 800–3200
-      const series = [];
-      let v = rand(1100, 2000);
-      for(let i=0;i<10;i++){
-        v = Math.max(800, Math.min(3200, v + rand(-240, 240)));
-        series.push(v);
-      }
+    <!-- Error -->
+    <div id="login-error">
+      Invalid Broker ID or password. Please try again.
+    </div>
 
-      const latest = series[series.length-1];
-      const hhiNow = document.getElementById("hhiNow");
-      const hhiLabel = document.getElementById("hhiLabel");
-      hhiNow.textContent = Math.round(latest);
-      if (latest >= 2500) hhiLabel.textContent = "High concentration";
-      else if (latest >= 1500) hhiLabel.textContent = "Medium concentration";
-      else hhiLabel.textContent = "Low concentration";
+    <!-- Form -->
+    <form method="POST" action="/login" id="loginForm" class="fade-up d2">
+      <input type="hidden" name="next" value="/dashboard"/>
 
-      function drawSpark(data){
-        // handle device pixel ratio for sharpness
-        const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
-        const cssW = canvas.clientWidth;
-        const cssH = canvas.clientHeight;
-        canvas.width = Math.floor(cssW * dpr);
-        canvas.height = Math.floor(cssH * dpr);
-        ctx.setTransform(dpr,0,0,dpr,0,0);
+      <div class="form-group">
+        <label class="form-label" for="broker_id">Broker ID</label>
+        <div class="input-wrap">
+          <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="7" width="20" height="14" rx="2"/>
+            <circle cx="12" cy="14" r="1" fill="currentColor"/>
+          </svg>
+          <input type="text" id="broker_id" name="broker_id"
+                 placeholder="e.g. 45" autocomplete="username" required/>
+        </div>
+      </div>
 
-        // clear
-        ctx.clearRect(0,0,cssW,cssH);
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <div class="input-wrap">
+          <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+          <input type="password" id="password" name="password"
+                 placeholder="••••••••" autocomplete="current-password" required/>
+        </div>
+      </div>
 
-        // padding
-        const pad = 10;
-        const w = cssW - pad*2;
-        const h = cssH - pad*2;
+      <div class="form-row">
+        <label class="remember">
+          <input type="checkbox" name="remember"/> Remember me
+        </label>
+        <a href="#" class="forgot">Forgot password?</a>
+      </div>
 
-        const min = Math.min.apply(null, data);
-        const max = Math.max.apply(null, data);
-        const range = Math.max(1, max - min);
+      <button type="submit" class="btn-login" id="loginBtn">
+        <span id="btnText">Sign In to Dashboard</span>
+        <div class="spinner" id="btnSpinner"></div>
+      </button>
+    </form>
 
-        // grid faint
-        ctx.strokeStyle = "rgba(255,255,255,0.06)";
-        ctx.lineWidth = 1;
-        for(let i=1;i<=3;i++){
-          const y = pad + (h/4)*i;
-          ctx.beginPath();
-          ctx.moveTo(pad, y);
-          ctx.lineTo(pad + w, y);
-          ctx.stroke();
-        }
+    <div class="divider fade-up d3"><span>Secure Access</span></div>
 
-        // area fill
-        ctx.beginPath();
-        data.forEach((val, i)=>{
-          const x = pad + (w*(i/(data.length-1)));
-          const y = pad + (h*(1 - ((val-min)/range)));
-          if(i===0) ctx.moveTo(x,y);
-          else ctx.lineTo(x,y);
-        });
-        ctx.lineTo(pad + w, pad + h);
-        ctx.lineTo(pad, pad + h);
-        ctx.closePath();
-        ctx.fillStyle = "rgba(0,208,132,0.10)";
-        ctx.fill();
+    <div class="info-box fade-up d4">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
+      </svg>
+      <p>Access is restricted to <strong>registered NEPSE brokers</strong>. Contact your administrator to get credentials.</p>
+    </div>
 
-        // line
-        ctx.beginPath();
-        data.forEach((val, i)=>{
-          const x = pad + (w*(i/(data.length-1)));
-          const y = pad + (h*(1 - ((val-min)/range)));
-          if(i===0) ctx.moveTo(x,y);
-          else ctx.lineTo(x,y);
-        });
-        ctx.strokeStyle = "rgba(0,208,132,0.95)";
-        ctx.lineWidth = 2;
-        ctx.stroke();
+    <div class="login-footer fade-up d5">
+      © 2025 FloorIQ Nepal &nbsp;·&nbsp;
+      <a href="#">Privacy Policy</a> &nbsp;·&nbsp;
+      <a href="#">Terms</a>
+    </div>
 
-        // last dot
-        const lx = pad + w;
-        const ly = pad + (h*(1 - ((data[data.length-1]-min)/range)));
-        ctx.beginPath();
-        ctx.arc(lx, ly, 3.6, 0, Math.PI*2);
-        ctx.fillStyle = "rgba(0,208,132,1)";
-        ctx.fill();
-        ctx.strokeStyle = "rgba(0,0,0,0.35)";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
+  </div>
+</div>
 
-      drawSpark(series);
-      window.addEventListener("resize", ()=> drawSpark(series));
+<script>
+  // Show spinner on submit
+  const form = document.getElementById('loginForm');
+  const btn  = document.getElementById('loginBtn');
+  const txt  = document.getElementById('btnText');
+  const spin = document.getElementById('btnSpinner');
 
-      // ===== Stats (demo placeholders; you can wire these to real APIs later) =====
-      // These are cosmetic for login page.
-      const today = new Date();
-      const y = today.getFullYear();
-      const m = String(today.getMonth()+1).padStart(2,"0");
-      const d = String(today.getDate()).padStart(2,"0");
-      document.getElementById("statDate").textContent = `${y}-${m}-${d}`;
-      document.getElementById("statSignals").textContent = "Wash + Spikes";
-      document.getElementById("statQuota").textContent = "10 req/day";
+  form.addEventListener('submit', function() {
+    btn.disabled = true;
+    txt.style.display = 'none';
+    spin.style.display = 'block';
+  });
 
-      // ===== Form submit: show spinner + POST JSON to /login =====
-      const form = document.getElementById("loginForm");
-      const btn = document.getElementById("submitBtn");
-      const sp = document.getElementById("spinner");
-      const btnText = document.getElementById("btnText");
-
-      form.addEventListener("submit", async (e)=>{
-        e.preventDefault();
-
-        // UI loading
-        btn.disabled = true;
-        sp.style.display = "inline-block";
-        btnText.textContent = "Signing in…";
-        errBox.style.display = "none";
-
-        const broker_id = String(document.getElementById("broker_id").value || "").trim();
-        const password = String(document.getElementById("password").value || "");
-        const next = "/dashboard";
-
-        try{
-          const res = await fetch(form.action || "/login", {
-            method: "POST",
-            headers: {"Content-Type":"application/json"},
-            credentials: "include",
-            body: JSON.stringify({ broker_id, password, next })
-          });
-
-          if(!res.ok){
-            // show error banner, stay on page
-            errBox.style.display = "block";
-            btn.disabled = false;
-            sp.style.display = "none";
-            btnText.textContent = "Sign in";
-            return;
-          }
-
-          const data = await res.json().catch(()=> ({}));
-          const go = (data && data.next) ? data.next : next;
-          window.location.href = go;
-        }catch(err){
-          errBox.style.display = "block";
-          btn.disabled = false;
-          sp.style.display = "none";
-          btnText.textContent = "Sign in";
-        }
-      });
-
-    })();
-  </script>
+  // Show error if ?error=1
+  if (new URLSearchParams(window.location.search).get('error')) {
+    document.getElementById('login-error').classList.add('show');
+  }
+</script>
 </body>
 </html>
