@@ -17,19 +17,16 @@ def _next_param(request: Request) -> str:
     return request.url.path + (("?" + q) if q else "")
 
 
-def _get_dashboard_context(conn: psycopg.Connection):
-    """
-    Keep dashboard resilient: don't 500 if broker_id casting/order has unexpected values.
-    """
+def _get_dashboard_context(conn: psycopg.Connection, request: Request):
     latest_bd = None
     broker_ids: list[int] = []
 
     with conn.cursor() as cur:
         cur.execute("SELECT MAX(business_date) FROM public.broker_daily_features")
-        latest_bd = cur.fetchone()[0]
+        row = cur.fetchone()
+        latest_bd = row[0] if row is not None else None
 
         if latest_bd is not None:
-            # Avoid broker_id::int in SQL (can crash if broker_id isn't strictly numeric)
             cur.execute(
                 """
                 SELECT broker_id
@@ -43,24 +40,28 @@ def _get_dashboard_context(conn: psycopg.Connection):
                 try:
                     broker_ids.append(int(bid))
                 except Exception:
-                    # skip non-numeric broker ids safely
                     continue
+
+    session_broker_id = get_session_broker_id(request)
+    broker_locked = session_broker_id is not None
 
     return {
         "latest_business_date": (None if latest_bd is None else str(latest_bd)),
         "broker_ids": broker_ids,
+        "session_broker_id": session_broker_id,
+        "broker_locked": broker_locked,
     }
 
 
 @router.get("/", response_class=HTMLResponse)
 def dashboard_home(request: Request, conn: psycopg.Connection = Depends(db_conn)):
-    ctx = _get_dashboard_context(conn)
+    ctx = _get_dashboard_context(conn, request)
     ctx.update({"request": request})
     return templates.TemplateResponse("dashboard.html", ctx)
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard_alias(request: Request, conn: psycopg.Connection = Depends(db_conn)):
-    ctx = _get_dashboard_context(conn)
+    ctx = _get_dashboard_context(conn, request)
     ctx.update({"request": request})
     return templates.TemplateResponse("dashboard.html", ctx)

@@ -1,270 +1,411 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>FloorIQ Nepal Dashboard (Demo)</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>FloorIQ Nepal — Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
   <style>
-    .banner { margin-top:10px; padding:10px 12px; border-radius:10px; border:1px solid #e6e8eb; background:#fff7e6; font-size:13px; color:#333; }
-    .topbar { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap; }
-    .top-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    a.btnlink { display:inline-block; padding:8px 10px; border:1px solid #d6d9dd; border-radius:8px; background:#fff; color:#111; text-decoration:none; font-size:13px; }
-    :root { color-scheme: light; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; background:#f6f7f9; color:#111; }
-    header { padding: 18px 20px; background:#fff; border-bottom:1px solid #e6e8eb; position: sticky; top:0; }
-    header h1 { margin:0; font-size:18px; }
-    header .sub { margin-top:6px; font-size:13px; color:#555; }
-    main { max-width: 1200px; margin: 0 auto; padding: 18px 20px 40px; }
-    .grid { display:grid; grid-template-columns: 1fr; gap: 14px; }
-    @media (min-width: 980px) { .grid { grid-template-columns: 1.1fr 0.9fr; } }
-    .card { background:#fff; border:1px solid #e6e8eb; border-radius:10px; padding:14px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
-    label { font-size:12px; color:#555; display:block; margin-bottom:6px; }
-    input, select, button { font: inherit; }
-    input, select { padding:10px 10px; border:1px solid #d6d9dd; border-radius:8px; min-width: 180px; background:#fff; }
-    button { padding:10px 12px; border:1px solid #d6d9dd; border-radius:8px; background:#111; color:#fff; cursor:pointer; }
-    button.secondary { background:#fff; color:#111; }
-    button:disabled { opacity:0.6; cursor:not-allowed; }
-    h2 { margin: 0 0 12px; font-size:14px; letter-spacing:0.2px; text-transform: uppercase; color:#444; }
-    .kpis { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
-    .kpi { border:1px solid #eef0f2; border-radius:10px; padding:10px; background:#fafbfc; }
-    .kpi .v { font-size:18px; font-weight:650; margin-top:4px; }
-    .kpi .k { font-size:12px; color:#666; }
-    table { width:100%; border-collapse: collapse; }
-    th, td { text-align:left; padding:8px 6px; border-bottom:1px solid #eef0f2; font-size:13px; }
-    th { font-size:12px; color:#666; text-transform: uppercase; letter-spacing:0.2px; }
-    .pill { display:inline-block; padding:3px 8px; border-radius:999px; font-size:12px; border:1px solid #e6e8eb; background:#fff; }
-    .pill.low { border-color:#bde5c8; background:#eefaf2; }
-    .pill.medium { border-color:#ffe2a6; background:#fff7e6; }
-    .pill.high { border-color:#ffb3b3; background:#fff0f0; }
-    .muted { color:#666; font-size:12px; }
-    .error { color:#b00020; font-size:13px; white-space: pre-wrap; }
-    .split { display:grid; grid-template-columns: 1fr; gap:12px; }
-    @media (min-width: 980px) { .split { grid-template-columns: 1fr 1fr; } }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-    tbody tr:hover { background:#f7f9fc; }
-    tbody.clickable tr { cursor:pointer; }
-    tbody.clickable tr:hover { background:#eef6ff; }
-    .badge { display:inline-block; padding:3px 8px; border-radius:999px; font-size:12px; border:1px solid #d6d9dd; background:#fff; }
-    .badge.blue { border-color:#b7d7ff; background:#eef6ff; }
-    .row-selected { background:#fff7e6 !important; font-weight:650; }
-
-
-    @media (max-width: 520px) {
-      main { padding: 14px 12px 32px; }
-      input, select, button { width: 100%; min-width: 0; }
-      .row { align-items: stretch; }
-      .top-actions { width: 100%; justify-content: flex-start; }
+    :root {
+      --bg:       #080c10;
+      --surface:  #0d1117;
+      --card:     #0f1923;
+      --border:   #1c2430;
+      --green:    #00d084;
+      --green-dim:#00d08420;
+      --amber:    #f5a623;
+      --red:      #ff4d4d;
+      --blue:     #3b82f6;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --sidebar-w:220px;
     }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;min-height:100vh;}
 
+    /* ── TOPBAR ── */
+    .topbar{
+      background:var(--surface);border-bottom:1px solid var(--border);
+      padding:14px 28px;display:flex;align-items:center;justify-content:space-between;
+      position:sticky;top:0;z-index:100;
+    }
+    .topbar-left{display:flex;align-items:center;gap:14px;}
+    .logo-icon{width:30px;height:30px;border:1.5px solid var(--green);border-radius:7px;position:relative;flex-shrink:0;}
+    .logo-icon::before{content:'';position:absolute;inset:4px;background:var(--green);clip-path:polygon(0 100%,30% 50%,55% 70%,80% 20%,100% 40%,100% 100%);}
+    .logo-name{font-family:'Space Mono',monospace;font-size:15px;font-weight:700;}
+    .logo-name span{color:var(--green);}
+    .topbar-right{display:flex;align-items:center;gap:10px;}
+    .live-badge{display:flex;align-items:center;gap:6px;background:var(--green-dim);border:1px solid #00d08440;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:600;color:var(--green);}
+    .live-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite;}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(.8);}}
+    .broker-chip{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;}
+    .broker-chip .bid{font-family:'Space Mono',monospace;font-weight:700;color:var(--green);}
+    .btnlink{display:inline-flex;align-items:center;padding:7px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--muted);text-decoration:none;font-size:13px;transition:all .15s;cursor:pointer;}
+    .btnlink:hover{border-color:var(--green);color:var(--text);}
+    .api-base{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);}
+
+    /* ── BANNER ── */
+    .banner{background:#f5a62310;border:1px solid #f5a62330;border-radius:8px;padding:10px 16px;font-size:12px;color:var(--muted);margin:16px 28px 0;}
+
+    /* ── MAIN ── */
+    main{flex:1;padding:20px 28px 40px;max-width:1400px;width:100%;margin:0 auto;}
+
+    /* ── GRID ── */
+    .grid{display:grid;grid-template-columns:1fr;gap:16px;}
+    @media(min-width:980px){.grid{grid-template-columns:1.15fr 0.85fr;}}
+    .split{display:grid;grid-template-columns:1fr;gap:12px;}
+    @media(min-width:980px){.split{grid-template-columns:1fr 1fr;}}
+
+    /* ── CARD ── */
+    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;}
+    .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+    h2{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+
+    /* ── CONTROLS ── */
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+    label{font-size:11px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;}
+    input,select{
+      font:inherit;padding:10px 12px;
+      border:1px solid var(--border);border-radius:8px;
+      background:var(--surface);color:var(--text);
+      font-size:13px;min-width:180px;outline:none;
+      transition:border-color .2s;
+    }
+    input::placeholder{color:var(--muted);}
+    input:focus,select:focus{border-color:var(--green);}
+    select option{background:var(--surface);color:var(--text);}
+    button{
+      font:inherit;padding:10px 16px;
+      border:1px solid var(--green);border-radius:8px;
+      background:var(--green);color:#080c10;
+      font-size:13px;font-weight:700;cursor:pointer;
+      transition:opacity .15s;white-space:nowrap;
+    }
+    button:hover{opacity:.88;}
+    button:disabled{opacity:.5;cursor:not-allowed;}
+    button.secondary{background:var(--card);color:var(--muted);border-color:var(--border);}
+    button.secondary:hover{border-color:var(--green);color:var(--text);}
+
+    /* ── KPI CARDS ── */
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px;}
+    .kpi{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--surface);}
+    .kpi .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:600;}
+    .kpi .v{font-size:20px;font-weight:700;margin-top:6px;font-family:'Space Mono',monospace;}
+
+    /* ── TABLES ── */
+    table{width:100%;border-collapse:collapse;}
+    th{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:600;padding:0 8px 10px;text-align:left;border-bottom:1px solid var(--border);}
+    td{padding:10px 8px;border-bottom:1px solid #1c243050;font-size:13px;}
+    tr:last-child td{border-bottom:none;}
+    tbody tr:hover td{background:#ffffff04;}
+    tbody.clickable tr{cursor:pointer;}
+    tbody.clickable tr:hover td{background:#3b82f610;}
+    .row-selected{background:#f5a62312 !important;font-weight:600;}
+    .mono{font-family:'Space Mono',monospace;}
+
+    /* ── PILLS ── */
+    .pill{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--border);background:var(--surface);}
+    .pill.low{border-color:#00d08440;background:#00d08412;color:var(--green);}
+    .pill.medium{border-color:#f5a62340;background:#f5a62312;color:var(--amber);}
+    .pill.high{border-color:#ff4d4d40;background:#ff4d4d12;color:var(--red);}
+    .badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;border:1px solid var(--border);background:var(--card);}
+    .badge.blue{border-color:#3b82f640;background:#3b82f612;color:var(--blue);}
+
+    /* ── ANOMALY SCORE BAR ── */
+    .score-wrap{display:flex;align-items:center;gap:8px;}
+    .score-bar-bg{flex:1;height:5px;background:var(--border);border-radius:99px;overflow:hidden;min-width:60px;}
+    .score-bar-fill{height:100%;border-radius:99px;}
+    .score-num{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;min-width:30px;text-align:right;}
+
+    /* ── MESSAGES ── */
+    .error{color:var(--red);font-size:13px;white-space:pre-wrap;margin-top:10px;padding:10px 14px;background:#ff4d4d10;border:1px solid #ff4d4d30;border-radius:8px;}
+    .muted{color:var(--muted);font-size:12px;}
+
+    /* ── TICKER ── */
+    .ticker-wrap{background:var(--surface);border-top:1px solid var(--border);overflow:hidden;padding:8px 0;flex-shrink:0;}
+    .ticker{display:flex;gap:40px;animation:tick 30s linear infinite;white-space:nowrap;}
+    @keyframes tick{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+    .tick-item{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);display:flex;gap:7px;}
+    .tick-item .up{color:var(--green);}
+    .tick-item .dn{color:var(--red);}
+
+    /* Fade in */
+    .fade{opacity:0;transform:translateY(10px);animation:fadeUp .4s ease forwards;}
+    @keyframes fadeUp{to{opacity:1;transform:translateY(0);}}
+    .d1{animation-delay:.05s;}.d2{animation-delay:.1s;}.d3{animation-delay:.15s;}.d4{animation-delay:.2s;}
+
+    @media(max-width:520px){
+      main{padding:14px 14px 32px;}
+      input,select,button{width:100%;min-width:0;}
+      .row{flex-direction:column;align-items:stretch;}
+      .topbar{padding:12px 16px;}
+      .banner{margin:12px 16px 0;}
+    }
   </style>
 </head>
 <body>
-  <header>
-    <div class="topbar">
-      <div>
-        <h1>FloorIQ Nepal Dashboard (Demo)</h1>
-        <div class="sub">
-          <span class="muted">API base: <span class="mono" id="apiBase"></span></span>
+
+<!-- ═══ TOPBAR ═══ -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo-icon"></div>
+    <span class="logo-name">Floor<span>IQ</span> Nepal</span>
+    <span class="api-base">API: <span id="apiBase"></span></span>
+  </div>
+  <div class="topbar-right">
+    {% if session_broker_id %}
+      <div class="broker-chip">Broker <span class="bid">{{ session_broker_id }}</span></div>
+      <a class="btnlink" href="/logout">Logout</a>
+    {% endif %}
+    <div class="live-badge"><div class="live-dot"></div>Live Data</div>
+  </div>
+</div>
+
+<!-- ═══ BANNER ═══ -->
+<div class="banner" id="sebonBanner">
+  ⚠ Analytics only — no trading advice. Descriptive market insights and anomaly flags based on public NEPSE floorsheet data.
+</div>
+
+<!-- ═══ MAIN ═══ -->
+<main>
+  <div class="grid">
+
+    <!-- ── LEFT: BROKER INSIGHTS ── -->
+    <section class="card fade d1">
+      <div class="card-head">
+        <h2>Broker Insights</h2>
+        {% if broker_locked %}<span class="badge blue">Restricted — own broker only</span>{% endif %}
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="brokerId">Broker ID</label>
+          <select id="brokerId" {% if broker_locked %}disabled{% endif %}>
+            <option value="">Select broker</option>
+            {% for bid in broker_ids %}
+            <option value="{{ bid }}" {% if session_broker_id and session_broker_id == bid %}selected{% endif %}>{{ bid }}</option>
+            {% endfor %}
+          </select>
+          <div class="muted" style="margin-top:6px;">Latest: {{ latest_business_date or "—" }}</div>
+        </div>
+        <div>
+          <label for="brokerDate">Business date (optional)</label>
+          <input id="brokerDate" type="text" placeholder="YYYY-MM-DD (empty = latest)"/>
+        </div>
+        <button id="loadBrokerBtn">Load</button>
+        <button id="refreshDataBtn" class="secondary">Refresh</button>
+        <button id="copyLinkBtn" class="secondary">Copy Link</button>
+        <button id="downloadPdfBtn" class="secondary">PDF</button>
+        <button id="clearBrokerBtn" class="secondary">Clear</button>
+      </div>
+
+      <div id="brokerErr" class="error" style="display:none;"></div>
+      <div id="brokerMsg" class="muted" style="margin-top:10px;display:none;"></div>
+
+      <!-- KPIs -->
+      <div class="kpis">
+        <div class="kpi">
+          <div class="k">Risk</div>
+          <div class="v" id="brokerRisk" style="color:var(--red);">—</div>
+        </div>
+        <div class="kpi">
+          <div class="k">HHI (buy-side)</div>
+          <div class="v" id="brokerHHI" style="color:var(--amber);">—</div>
+        </div>
+        <div class="kpi">
+          <div class="k">Top1 Share</div>
+          <div class="v" id="brokerTop1">—</div>
+        </div>
+        <div class="kpi">
+          <div class="k">Net Amount</div>
+          <div class="v" id="brokerNetAmount" style="color:var(--green);">—</div>
+        </div>
+        <div class="kpi">
+          <div class="k">Buy Amount</div>
+          <div class="v" id="brokerBuyAmount">—</div>
+        </div>
+        <div class="kpi">
+          <div class="k">Sell Amount</div>
+          <div class="v" id="brokerSellAmount">—</div>
+        </div>
+        <div class="kpi">
+          <div class="k">Trades (Buy)</div>
+          <div class="v" id="brokerTradesBuy">—</div>
+        </div>
+        <div class="kpi">
+          <div class="k">Trades (Sell)</div>
+          <div class="v" id="brokerTradesSell">—</div>
         </div>
       </div>
-      <div class="top-actions">
-        {% if session_broker_id %}
-          <span class="badge blue">Logged in: Broker {{ session_broker_id }}</span>
-          <a class="btnlink" href="/logout">Logout</a>
-        {% endif %}
+
+      <!-- Top Symbols + Anomalies -->
+      <div class="split" style="margin-top:14px;">
+        <div class="card" style="background:var(--surface);">
+          <h2 style="margin-bottom:10px;">Top Symbols (Buy)</h2>
+          <table>
+            <thead><tr><th>Symbol</th><th>Amount</th><th>Share %</th></tr></thead>
+            <tbody id="brokerTopSymbols"></tbody>
+          </table>
+          <div class="muted" id="brokerMeta" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="card" style="background:var(--surface);">
+          <h2 style="margin-bottom:10px;">Anomalies — IF Scores</h2>
+          <table>
+            <thead><tr><th>Type</th><th>Score</th><th>Details</th></tr></thead>
+            <tbody id="brokerAnomalies"></tbody>
+          </table>
+        </div>
       </div>
-    </div>
 
-    <div class="banner" id="sebonBanner">
-      Analytics only, no trading advice. This dashboard shows descriptive market insights and anomaly flags based on public floorsheet transaction data.
-    </div>
-  </header>
+      <!-- Sector Flows -->
+      <div class="card" style="margin-top:12px;background:var(--surface);">
+        <h2 style="margin-bottom:10px;">Sector Flows (Broker)</h2>
+        <table>
+          <thead><tr><th>Sector</th><th>Net</th><th>Prev Net</th><th>Δ Net</th></tr></thead>
+          <tbody id="brokerSectorFlows"></tbody>
+        </table>
+      </div>
+    </section>
 
-  <main>
-    <div class="grid">
-      <section class="card">
-        <h2>Broker Insights</h2>
-        {% if broker_locked %}<div class="muted">Note: यो account ले आफ्नो broker मात्र हेर्न पाउँछ।</div>{% endif %}
+    <!-- ── RIGHT: MARKET WIDGETS ── -->
+    <aside>
 
+      <!-- Sector Rotation -->
+      <div class="card fade d2" style="margin-bottom:16px;">
+        <div class="card-head"><h2>Sector Rotation (Turnover Δ)</h2></div>
         <div class="row">
           <div>
-            <label for="brokerId">Broker ID</label>
-            <select id="brokerId" {% if broker_locked %}disabled{% endif %}>
-              <option value="">Select broker</option>
-              {% for bid in broker_ids %}
-              <option value="{{ bid }}" {% if session_broker_id and session_broker_id == bid %}selected{% endif %}>{{ bid }}</option>
-              {% endfor %}
-            </select>
-            <div class="muted" style="margin-top:6px;">Latest: {{ latest_business_date or "—" }}</div>
+            <label for="sectorDate">Business date</label>
+            <input id="sectorDate" type="text" placeholder="YYYY-MM-DD (empty = latest)"/>
           </div>
+          <button id="loadSectorsBtn">Load</button>
+        </div>
+        <div id="sectorErr" class="error" style="display:none;"></div>
+        <table style="margin-top:12px;">
+          <thead><tr><th>Sector</th><th>Turnover</th><th>Δ Turnover</th></tr></thead>
+          <tbody id="sectorRotation" class="clickable"></tbody>
+        </table>
+        <div class="muted" style="margin-top:8px;">
+          <span class="badge blue" id="selectedSector" style="display:none;"></span>
+          <span id="sectorMeta"></span>
+        </div>
+      </div>
+
+      <!-- Anomalies Today -->
+      <div class="card fade d3" style="margin-bottom:16px;">
+        <div class="card-head">
+          <h2>Anomalies Today</h2>
+          <button id="loadAnomaliesBtn" style="padding:7px 14px;font-size:12px;">Load</button>
+        </div>
+        <div id="anomaliesErr" class="error" style="display:none;"></div>
+        <table>
+          <thead><tr><th>Entity</th><th>Type</th><th>IF Score</th></tr></thead>
+          <tbody id="anomaliesToday"></tbody>
+        </table>
+        <div class="muted" id="anomaliesMeta" style="margin-top:8px;"></div>
+      </div>
+
+      <!-- Top Brokers -->
+      <div class="card fade d3" style="margin-bottom:16px;">
+        <div class="card-head"><h2>Top Brokers</h2></div>
+        <div class="row">
           <div>
-            <label for="brokerDate">Business date (optional)</label>
-            <input id="brokerDate" type="text" placeholder="YYYY-MM-DD (leave empty = latest)" />
+            <label for="topBrokersMetric">Metric</label>
+            <select id="topBrokersMetric">
+              <option value="net_amount">net_amount</option>
+              <option value="total_buy_amount">total_buy_amount</option>
+              <option value="total_sell_amount">total_sell_amount</option>
+              <option value="net_qty">net_qty</option>
+              <option value="trades_buy_count">trades_buy_count</option>
+              <option value="trades_sell_count">trades_sell_count</option>
+            </select>
           </div>
-          <button id="loadBrokerBtn">Load</button>
-          <button id="refreshDataBtn" class="secondary">Refresh data</button>
-          <button id="copyLinkBtn" class="secondary">Copy link</button>
-          <button id="downloadPdfBtn" class="secondary">Download PDF</button>
-          <button id="clearBrokerBtn" class="secondary">Clear</button>
+          <button id="loadTopBrokersBtn">Load</button>
         </div>
+        <div id="topBrokersErr" class="error" style="display:none;"></div>
+        <table style="margin-top:12px;">
+          <thead><tr><th>Broker</th><th id="topBrokersMetricCol">Value</th></tr></thead>
+          <tbody id="topBrokers"></tbody>
+        </table>
+      </div>
 
-        <div id="brokerErr" class="error" style="margin-top:10px; display:none;"></div>
-        <div id="brokerMsg" class="muted" style="margin-top:10px; display:none;"></div>
-
-        <div style="margin-top:12px" class="kpis">
-          <div class="kpi">
-            <div class="k">Risk</div>
-            <div class="v" id="brokerRisk">—</div>
+      <!-- Top Symbols -->
+      <div class="card fade d4">
+        <div class="card-head"><h2>Top Symbols</h2></div>
+        <div class="row">
+          <div>
+            <label for="topSymbolsMetric">Metric</label>
+            <select id="topSymbolsMetric">
+              <option value="total_amount">total_amount</option>
+              <option value="total_qty">total_qty</option>
+              <option value="trades_count">trades_count</option>
+              <option value="vwap">vwap</option>
+            </select>
           </div>
-          <div class="kpi">
-            <div class="k">HHI (buy-side)</div>
-            <div class="v" id="brokerHHI">—</div>
-          </div>
-          <div class="kpi">
-            <div class="k">Top1 share</div>
-            <div class="v" id="brokerTop1">—</div>
-          </div>
-
-          <div class="kpi">
-            <div class="k">Net amount</div>
-            <div class="v" id="brokerNetAmount">—</div>
-          </div>
-          <div class="kpi">
-            <div class="k">Buy amount</div>
-            <div class="v" id="brokerBuyAmount">—</div>
-          </div>
-          <div class="kpi">
-            <div class="k">Sell amount</div>
-            <div class="v" id="brokerSellAmount">—</div>
-          </div>
-          <div class="kpi">
-            <div class="k">Trades (buy)</div>
-            <div class="v" id="brokerTradesBuy">—</div>
-          </div>
-          <div class="kpi">
-            <div class="k">Trades (sell)</div>
-            <div class="v" id="brokerTradesSell">—</div>
-          </div>
+          <button id="loadTopSymbolsBtn">Load</button>
         </div>
+        <div id="topSymbolsErr" class="error" style="display:none;"></div>
+        <table style="margin-top:12px;">
+          <thead><tr><th>Symbol</th><th id="topSymbolsMetricCol">Value</th></tr></thead>
+          <tbody id="topSymbols"></tbody>
+        </table>
+      </div>
 
-        <div class="split" style="margin-top:14px">
-          <div class="card" style="border-radius:12px; border-color:#eef0f2; box-shadow:none;">
-            <h2 style="margin-bottom:10px">Top symbols (buy)</h2>
-            <table>
-              <thead><tr><th>Symbol</th><th>Amount</th><th>Share %</th></tr></thead>
-              <tbody id="brokerTopSymbols"></tbody>
-            </table>
-            <div class="muted" id="brokerMeta" style="margin-top:8px"></div>
-          </div>
+    </aside>
+  </div>
 
-          <div class="card" style="border-radius:12px; border-color:#eef0f2; box-shadow:none;">
-            <h2 style="margin-bottom:10px">Anomalies</h2>
-            <table>
-              <thead><tr><th>Type</th><th>Score</th><th>Details</th></tr></thead>
-              <tbody id="brokerAnomalies"></tbody>
-            </table>
-          </div>
-        </div>
+  <p class="muted" style="margin-top:16px;">Lightweight demo UI — data cached on API side (Redis when enabled).</p>
+</main>
 
-        <div class="card" style="margin-top:12px; border-radius:12px; border-color:#eef0f2; box-shadow:none;">
-          <h2 style="margin-bottom:10px">Sector flows (broker)</h2>
-          <table>
-            <thead><tr><th>Sector</th><th>Net</th><th>Prev net</th><th>Δ net</th></tr></thead>
-            <tbody id="brokerSectorFlows"></tbody>
-          </table>
-        </div>
-      </section>
+<!-- ═══ TICKER ═══ -->
+<div class="ticker-wrap">
+  <div class="ticker">
+    <span class="tick-item">NABIL <span class="up">▲ 1,420</span> +2.1%</span>
+    <span class="tick-item">NICA <span class="dn">▼ 890</span> -0.8%</span>
+    <span class="tick-item">SCB <span class="up">▲ 2,100</span> +1.4%</span>
+    <span class="tick-item">GBBL <span class="up">▲ 340</span> +3.2%</span>
+    <span class="tick-item">HIDCL <span class="dn">▼ 174</span> -1.1%</span>
+    <span class="tick-item">NTC <span class="up">▲ 870</span> +0.6%</span>
+    <span class="tick-item">ADBL <span class="dn">▼ 512</span> -2.3%</span>
+    <span class="tick-item">PRVU <span class="up">▲ 1,200</span> +1.8%</span>
+    <span class="tick-item">NABIL <span class="up">▲ 1,420</span> +2.1%</span>
+    <span class="tick-item">NICA <span class="dn">▼ 890</span> -0.8%</span>
+    <span class="tick-item">SCB <span class="up">▲ 2,100</span> +1.4%</span>
+    <span class="tick-item">GBBL <span class="up">▲ 340</span> +3.2%</span>
+    <span class="tick-item">HIDCL <span class="dn">▼ 174</span> -1.1%</span>
+    <span class="tick-item">NTC <span class="up">▲ 870</span> +0.6%</span>
+    <span class="tick-item">ADBL <span class="dn">▼ 512</span> -2.3%</span>
+    <span class="tick-item">PRVU <span class="up">▲ 1,200</span> +1.8%</span>
+  </div>
+</div>
 
-      <aside class="card">
-        <h2>Market Widgets</h2>
+<script>
+  window.FLOORIQ_API_BASE = window.FLOORIQ_API_BASE || "";
+  document.getElementById("apiBase").textContent = window.FLOORIQ_API_BASE || "(same origin)";
 
-        <div class="card" style="border-radius:12px; border-color:#eef0f2; box-shadow:none; margin-bottom:12px;">
-          <h2 style="margin-bottom:10px">Sector rotation (turnover Δ)</h2>
-          <div class="row" style="align-items:flex-end;">
-            <div>
-              <label for="sectorDate">Business date (optional)</label>
-              <input id="sectorDate" type="text" placeholder="YYYY-MM-DD (empty = latest)" />
-            </div>
-            <button id="loadSectorsBtn">Load</button>
-          </div>
-          <div id="sectorErr" class="error" style="margin-top:10px; display:none;"></div>
-          <table style="margin-top:10px;">
-            <thead><tr><th>Sector</th><th>Turnover</th><th>Δ turnover</th></tr></thead>
-            <tbody id="sectorRotation" class="clickable"></tbody>
-          </table>
-          <div class="muted" style="margin-top:8px"><span class="badge blue" id="selectedSector" style="display:none;"></span> <span id="sectorMeta"></span></div>
-        </div>
+  // ── Anomaly score bar renderer (new) ──
+  window.renderAnomalyScore = function(score) {
+    if (score == null || score === "") return "—";
+    const s = parseFloat(score);
+    const pct = Math.min(100, Math.round(s * 100));
+    const color = s >= 0.8 ? "var(--red)" : s >= 0.6 ? "var(--amber)" : "var(--blue)";
+    return `<div class="score-wrap">
+      <div class="score-bar-bg"><div class="score-bar-fill" style="width:${pct}%;background:${color};"></div></div>
+      <span class="score-num" style="color:${color};">${s.toFixed(2)}</span>
+    </div>`;
+  };
 
-        <div class="card" style="border-radius:12px; border-color:#eef0f2; box-shadow:none; margin-bottom:12px;">
-          <h2 style="margin-bottom:10px">Anomalies today</h2>
-          <div class="row">
-            <button id="loadAnomaliesBtn">Load</button>
-          </div>
-          <div id="anomaliesErr" class="error" style="margin-top:10px; display:none;"></div>
-          <table style="margin-top:10px;">
-            <thead><tr><th>Entity</th><th>Type</th><th>Score</th></tr></thead>
-            <tbody id="anomaliesToday"></tbody>
-          </table>
-          <div class="muted" id="anomaliesMeta" style="margin-top:8px"></div>
-        </div>
-
-        <div class="card" style="border-radius:12px; border-color:#eef0f2; box-shadow:none; margin-bottom:12px;">
-          <h2 style="margin-bottom:10px">Top brokers</h2>
-          <div class="row">
-            <div>
-              <label for="topBrokersMetric">Metric</label>
-              <select id="topBrokersMetric">
-                <option value="net_amount">net_amount</option>
-                <option value="total_buy_amount">total_buy_amount</option>
-                <option value="total_sell_amount">total_sell_amount</option>
-                <option value="net_qty">net_qty</option>
-                <option value="trades_buy_count">trades_buy_count</option>
-                <option value="trades_sell_count">trades_sell_count</option>
-              </select>
-            </div>
-            <button id="loadTopBrokersBtn">Load</button>
-          </div>
-          <div id="topBrokersErr" class="error" style="margin-top:10px; display:none;"></div>
-          <table style="margin-top:10px;">
-            <thead><tr><th>Broker</th><th id="topBrokersMetricCol">Value</th></tr></thead>
-            <tbody id="topBrokers"></tbody>
-          </table>
-        </div>
-
-        <div class="card" style="border-radius:12px; border-color:#eef0f2; box-shadow:none;">
-          <h2 style="margin-bottom:10px">Top symbols</h2>
-          <div class="row">
-            <div>
-              <label for="topSymbolsMetric">Metric</label>
-              <select id="topSymbolsMetric">
-                <option value="total_amount">total_amount</option>
-                <option value="total_qty">total_qty</option>
-                <option value="trades_count">trades_count</option>
-                <option value="vwap">vwap</option>
-              </select>
-            </div>
-            <button id="loadTopSymbolsBtn">Load</button>
-          </div>
-          <div id="topSymbolsErr" class="error" style="margin-top:10px; display:none;"></div>
-          <table style="margin-top:10px;">
-            <thead><tr><th>Symbol</th><th id="topSymbolsMetricCol">Value</th></tr></thead>
-            <tbody id="topSymbols"></tbody>
-          </table>
-        </div>
-      </aside>
-    </div>
-
-    <p class="muted" style="margin-top:14px">
-      Note: This is a lightweight demo UI. Data is cached on API side (Redis when enabled).
-    </p>
-  </main>
-
-  <script>
-    // If you later host dashboard separately, set window.FLOORIQ_API_BASE = "https://your-api"
-    window.FLOORIQ_API_BASE = window.FLOORIQ_API_BASE || "";
-    document.getElementById("apiBase").textContent = window.FLOORIQ_API_BASE || "(same origin)";
-  </script>
-  <script src="/static/dashboard.js"></script>
+  // ── Risk pill helper (preserved + styled) ──
+  window.riskPill = function(v) {
+    if (v == null) return "—";
+    const n = parseFloat(v);
+    if (isNaN(n)) return v;
+    const cls = n >= 70 ? "high" : n >= 40 ? "medium" : "low";
+    const color = n >= 70 ? "var(--red)" : n >= 40 ? "var(--amber)" : "var(--green)";
+    return `<span class="pill ${cls}" style="color:${color};">${n}</span>`;
+  };
+</script>
+<script src="/static/dashboard.js"></script>
 </body>
 </html>
