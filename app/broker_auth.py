@@ -254,6 +254,10 @@ async def require_broker(request: Request, redis=Depends(redis_client)) -> int:
 
     bid = get_session_broker_id(request)
     if not bid:
+        if is_admin_unlocked(request):
+            request.state.broker_id = 0
+            request.state.broker_plan = "admin"
+            return 0
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="Login required.")
 
     cfg = await get_broker_config(redis, bid)
@@ -286,8 +290,8 @@ async def enforce_broker_access(
 
     # Admin super unlock bypass (cookie-based)
     if is_admin_unlocked(request):
-        await audit_event(redis, int(session_bid), "admin_view", request, {"target_broker_id": int(broker_id)})
-        return int(session_bid)
+        await audit_event(redis, int(broker_id), "admin_view", request, {"target_broker_id": int(broker_id)})
+        return int(broker_id)
 
     if int(session_bid) != int(broker_id):
         raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Forbidden: broker mismatch.")
@@ -314,8 +318,8 @@ async def broker_view_gate(
 
     # Admin super unlock bypass (cookie-based)
     if is_admin_unlocked(request):
-        await audit_event(redis, int(bid), "admin_view", request)
-        return int(bid)
+        await audit_event(redis, 0, "admin_view", request)
+        return 0
 
     await enforce_daily_quota(redis, int(bid), request)
     await audit_event(redis, int(bid), "view", request)
