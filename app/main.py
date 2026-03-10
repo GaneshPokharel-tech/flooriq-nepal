@@ -65,3 +65,5 @@ app.include_router(reports_router)
 app.include_router(dashboard_router)
 app.include_router(insights_router)
 app.include_router(admin_router)
+from app.routers import renew as renew_router
+app.include_router(renew_router.router)
