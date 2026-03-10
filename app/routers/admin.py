@@ -45,7 +45,7 @@ def require_panel_admin(request: Request):
 # ── EXISTING ROUTES ──────────────────────────────────────────────────────────
 
 @router.post("/admin/super/unlock")
-async def super_unlock(request: Request):
+async def super_unlock(request: Request, admin: str = Depends(require_panel_admin)):
     s = Settings()
     if not s.admin_unlock_secret:
         raise HTTPException(status_code=500, detail="ADMIN_UNLOCK_SECRET not configured.")
