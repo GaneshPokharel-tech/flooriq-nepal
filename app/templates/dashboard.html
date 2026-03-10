@@ -143,7 +143,7 @@
     }
   </style>
 </head>
-<body>
+<body data-broker-locked="{{ broker_locked | lower }}" data-session-bid="{{ session_broker_id or '' }}">
 
 <!-- ═══ TOPBAR ═══ -->
 <div class="topbar">
@@ -384,8 +384,20 @@
   window.FLOORIQ_API_BASE = window.FLOORIQ_API_BASE || "";
   document.getElementById("apiBase").textContent = window.FLOORIQ_API_BASE || "(same origin)";
 
-  // ── Anomaly score bar renderer (new) ──
-  window.renderAnomalyScore = function(score) {
+  const API = window.FLOORIQ_API_BASE;
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  function fmt(n, decimals=2) {
+    if (n == null) return "—";
+    const f = parseFloat(n);
+    if (isNaN(f)) return n;
+    if (Math.abs(f) >= 1e7) return (f/1e7).toFixed(1) + "Cr";
+    if (Math.abs(f) >= 1e5) return (f/1e5).toFixed(1) + "L";
+    return f.toLocaleString("en-IN", {maximumFractionDigits: decimals});
+  }
+
+  function scoreBar(score) {
     if (score == null || score === "") return "—";
     const s = parseFloat(score);
     const pct = Math.min(100, Math.round(s * 100));
@@ -394,18 +406,260 @@
       <div class="score-bar-bg"><div class="score-bar-fill" style="width:${pct}%;background:${color};"></div></div>
       <span class="score-num" style="color:${color};">${s.toFixed(2)}</span>
     </div>`;
-  };
+  }
 
-  // ── Risk pill helper (preserved + styled) ──
-  window.riskPill = function(v) {
-    if (v == null) return "—";
-    const n = parseFloat(v);
-    if (isNaN(n)) return v;
-    const cls = n >= 70 ? "high" : n >= 40 ? "medium" : "low";
-    const color = n >= 70 ? "var(--red)" : n >= 40 ? "var(--amber)" : "var(--green)";
-    return `<span class="pill ${cls}" style="color:${color};">${n}</span>`;
-  };
+  function riskPill(v) {
+    if (!v) return "—";
+    const cls = v === "HIGH" ? "high" : v === "MEDIUM" ? "medium" : "low";
+    const color = v === "HIGH" ? "var(--red)" : v === "MEDIUM" ? "var(--amber)" : "var(--green)";
+    return `<span class="pill ${cls}" style="color:${color};">${v}</span>`;
+  }
+
+  function anomalyLabel(type) {
+    const map = {
+      wash_pair_roundtrip:        {label:"Wash Pair",        color:"var(--red)"},
+      wash_counterparty_dominance:{label:"Counterparty Dom.",color:"#a855f7"},
+      broker_net_amount_spike:    {label:"Net Spike",        color:"var(--amber)"},
+      symbol_turnover_spike:      {label:"Turnover Spike",   color:"var(--amber)"},
+      self_trade_heavy:           {label:"Self Trade",       color:"var(--blue)"},
+      isolation_forest_anomaly:   {label:"🤖 IF Anomaly",   color:"var(--green)"},
+    };
+    const m = map[type] || {label: type, color:"var(--muted)"};
+    return `<span style="font-size:11px;font-weight:600;color:${m.color};
+      background:${m.color}18;border:1px solid ${m.color}40;
+      padding:2px 8px;border-radius:6px;white-space:nowrap;">${m.label}</span>`;
+  }
+
+  function showErr(id, msg) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = msg ? "block" : "none";
+  }
+
+  function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = val ?? "—";
+  }
+
+  function setTbody(id, html) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html || `<tr><td colspan="10" style="color:var(--muted);text-align:center;padding:16px;">No data</td></tr>`;
+  }
+
+  // ── BROKER INSIGHTS ──────────────────────────────────────────────────────
+
+  const _brokerLocked = document.body.dataset.brokerLocked === "true";
+  const _sessionBid   = document.body.dataset.sessionBid || "";
+
+  const brokerSelect = document.getElementById("brokerId");
+  const brokerDateIn = document.getElementById("brokerDate");
+
+  // If broker_locked, force select to session broker
+  if (_brokerLocked && brokerSelect && _sessionBid) {
+    brokerSelect.value = _sessionBid;
+  }
+
+  async function loadBroker() {
+    const bid = brokerSelect ? brokerSelect.value : "";
+    if (!bid) { showErr("brokerErr", "Please select a broker."); return; }
+    showErr("brokerErr", "");
+    showErr("brokerMsg", "Loading…");
+
+    const date = (brokerDateIn ? brokerDateIn.value : "").trim();
+    const qs = date ? `?business_date=${date}` : "";
+    const url = `${API}/insights/broker/${bid}${qs}`;
+
+    try {
+      const res = await fetch(url, {credentials: "same-origin"});
+      if (!res.ok) {
+        const e = await res.json().catch(()=>({detail: res.statusText}));
+        showErr("brokerErr", e.detail || res.statusText);
+        showErr("brokerMsg", "");
+        return;
+      }
+      const d = await res.json();
+      showErr("brokerMsg", "");
+      renderBroker(d);
+    } catch(e) {
+      showErr("brokerErr", "Network error: " + e.message);
+      showErr("brokerMsg", "");
+    }
+  }
+
+  function renderBroker(d) {
+    const s = d.summary || {};
+    const c = d.concentration || {};
+
+    setText("brokerRisk",      riskPill(d.risk));
+    setText("brokerHHI",       c.hhi != null ? c.hhi.toFixed(0) : "—");
+    setText("brokerTop1",      c.top1_share_pct != null ? c.top1_share_pct.toFixed(1) + "%" : "—");
+    setText("brokerNetAmount", fmt(s.net_amount));
+    setText("brokerBuyAmount", fmt(s.total_buy_amount));
+    setText("brokerSellAmount",fmt(s.total_sell_amount));
+    setText("brokerTradesBuy", s.trades_buy_count ?? "—");
+    setText("brokerTradesSell",s.trades_sell_count ?? "—");
+
+    // Top symbols
+    const syms = c.top_symbols || [];
+    setTbody("brokerTopSymbols", syms.map(r => `
+      <tr>
+        <td style="font-family:'Space Mono',monospace;font-weight:700;">${r.symbol}</td>
+        <td>₨ ${fmt(r.amount)}</td>
+        <td>${r.share_pct?.toFixed(1)}%</td>
+      </tr>`).join(""));
+
+    // Anomalies with score bars
+    const anoms = d.anomalies || [];
+    setTbody("brokerAnomalies", anoms.length === 0
+      ? `<tr><td colspan="3" style="color:var(--green);text-align:center;padding:14px;">✓ No anomalies</td></tr>`
+      : anoms.map(a => {
+          const det = a.details || {};
+          const detStr = a.anomaly_type === "isolation_forest_anomaly"
+            ? `IF Score: ${a.score.toFixed(3)}`
+            : det.counterparty ? `↔ Broker ${det.counterparty}` : (det.symbol || "");
+          return `<tr>
+            <td>${anomalyLabel(a.anomaly_type)}</td>
+            <td>${scoreBar(a.score)}</td>
+            <td style="font-size:11px;color:var(--muted);">${detStr}</td>
+          </tr>`;
+        }).join(""));
+
+    // Sector flows
+    const flows = d.sector_flows || [];
+    setTbody("brokerSectorFlows", flows.map(f => {
+      const delta = f.delta_net_amount || 0;
+      const dcolor = delta >= 0 ? "var(--green)" : "var(--red)";
+      return `<tr>
+        <td>${f.sector}</td>
+        <td>₨ ${fmt(f.net_amount)}</td>
+        <td>₨ ${fmt(f.prev_net_amount)}</td>
+        <td style="color:${dcolor};">${delta >= 0 ? "+" : ""}${fmt(delta)}</td>
+      </tr>`;
+    }).join(""));
+  }
+
+  // ── SECTOR ROTATION ──────────────────────────────────────────────────────
+
+  async function loadSectors() {
+    showErr("sectorErr", "");
+    const date = (document.getElementById("sectorDate")?.value || "").trim();
+    const qs = date ? `?business_date=${date}` : "";
+    try {
+      const res = await fetch(`${API}/insights/sectors/rotation${qs}`, {credentials:"same-origin"});
+      if (!res.ok) { showErr("sectorErr", (await res.json().catch(()=>({}))).detail || res.statusText); return; }
+      const d = await res.json();
+      const rows = d.data || [];
+      document.getElementById("sectorMeta").textContent = `${d.business_date || ""}`;
+      setTbody("sectorRotation", rows.map(r => {
+        const dc = (r.delta_amount || 0) >= 0 ? "var(--green)" : "var(--red)";
+        return `<tr>
+          <td>${r.sector}</td>
+          <td>₨ ${fmt(r.total_amount)}</td>
+          <td style="color:${dc};">${(r.delta_amount||0)>=0?"+":""}${fmt(r.delta_amount)}</td>
+        </tr>`;
+      }).join(""));
+    } catch(e) { showErr("sectorErr", e.message); }
+  }
+
+  // ── ANOMALIES TODAY ──────────────────────────────────────────────────────
+
+  async function loadAnomalies() {
+    showErr("anomaliesErr", "");
+    try {
+      const res = await fetch(`${API}/anomalies/today?limit=50`, {credentials:"same-origin"});
+      if (!res.ok) { showErr("anomaliesErr", (await res.json().catch(()=>({}))).detail || res.statusText); return; }
+      const d = await res.json();
+      document.getElementById("anomaliesMeta").textContent = `${d.count || 0} anomalies · ${d.data?.[0]?.business_date || ""}`;
+      setTbody("anomaliesToday", (d.data || []).map(a => `
+        <tr>
+          <td style="font-family:'Space Mono',monospace;font-size:12px;">${a.entity_type} ${a.entity_id}</td>
+          <td>${anomalyLabel(a.anomaly_type)}</td>
+          <td>${scoreBar(a.score)}</td>
+        </tr>`).join(""));
+    } catch(e) { showErr("anomaliesErr", e.message); }
+  }
+
+  // ── TOP BROKERS ──────────────────────────────────────────────────────────
+
+  async function loadTopBrokers() {
+    showErr("topBrokersErr", "");
+    const metric = document.getElementById("topBrokersMetric")?.value || "net_amount";
+    document.getElementById("topBrokersMetricCol").textContent = metric;
+    try {
+      const res = await fetch(`${API}/insights/brokers/top?metric=${metric}&limit=20`, {credentials:"same-origin"});
+      if (!res.ok) { showErr("topBrokersErr", (await res.json().catch(()=>({}))).detail || res.statusText); return; }
+      const d = await res.json();
+      setTbody("topBrokers", (d.data || []).map(r => `
+        <tr>
+          <td style="font-family:'Space Mono',monospace;font-weight:700;">${r.broker_id}</td>
+          <td>₨ ${fmt(r[metric])}</td>
+        </tr>`).join(""));
+    } catch(e) { showErr("topBrokersErr", e.message); }
+  }
+
+  // ── TOP SYMBOLS ──────────────────────────────────────────────────────────
+
+  async function loadTopSymbols() {
+    showErr("topSymbolsErr", "");
+    const metric = document.getElementById("topSymbolsMetric")?.value || "total_amount";
+    document.getElementById("topSymbolsMetricCol").textContent = metric;
+    try {
+      const res = await fetch(`${API}/insights/symbols/top?metric=${metric}&limit=20`, {credentials:"same-origin"});
+      if (!res.ok) { showErr("topSymbolsErr", (await res.json().catch(()=>({}))).detail || res.statusText); return; }
+      const d = await res.json();
+      setTbody("topSymbols", (d.data || []).map(r => `
+        <tr>
+          <td style="font-family:'Space Mono',monospace;font-weight:700;">${r.stock_symbol}</td>
+          <td>${fmt(r[metric])}</td>
+        </tr>`).join(""));
+    } catch(e) { showErr("topSymbolsErr", e.message); }
+  }
+
+  // ── BUTTON WIRING ────────────────────────────────────────────────────────
+
+  document.getElementById("loadBrokerBtn")?.addEventListener("click", loadBroker);
+
+  document.getElementById("clearBrokerBtn")?.addEventListener("click", () => {
+    ["brokerRisk","brokerHHI","brokerTop1","brokerNetAmount","brokerBuyAmount",
+     "brokerSellAmount","brokerTradesBuy","brokerTradesSell"].forEach(id => setText(id, "—"));
+    ["brokerTopSymbols","brokerAnomalies","brokerSectorFlows"].forEach(id => setTbody(id, ""));
+    showErr("brokerErr",""); showErr("brokerMsg","");
+  });
+
+  document.getElementById("refreshDataBtn")?.addEventListener("click", async () => {
+    try {
+      await fetch(`${API}/admin/refresh`, {method:"POST", credentials:"same-origin"});
+      loadBroker();
+    } catch(e) { showErr("brokerErr", "Refresh failed: " + e.message); }
+  });
+
+  document.getElementById("copyLinkBtn")?.addEventListener("click", () => {
+    const bid = brokerSelect?.value;
+    const date = brokerDateIn?.value;
+    const url = `${location.origin}/dashboard?broker_id=${bid}${date ? "&date="+date : ""}`;
+    navigator.clipboard.writeText(url).then(() => alert("Link copied!"));
+  });
+
+  document.getElementById("downloadPdfBtn")?.addEventListener("click", () => {
+    const bid = brokerSelect?.value;
+    if (!bid) { alert("Select a broker first."); return; }
+    window.open(`${API}/reports/broker/${bid}.pdf`, "_blank");
+  });
+
+  document.getElementById("loadSectorsBtn")?.addEventListener("click", loadSectors);
+  document.getElementById("loadAnomaliesBtn")?.addEventListener("click", loadAnomalies);
+  document.getElementById("loadTopBrokersBtn")?.addEventListener("click", loadTopBrokers);
+  document.getElementById("loadTopSymbolsBtn")?.addEventListener("click", loadTopSymbols);
+
+  // ── AUTO-LOAD if broker locked ───────────────────────────────────────────
+  window.addEventListener("DOMContentLoaded", () => {
+    if (_brokerLocked && _sessionBid) {
+      loadBroker();
+      loadAnomalies();
+      loadSectors();
+    }
+  });
 </script>
-<script src="/static/dashboard.js"></script>
 </body>
 </html>
