@@ -143,6 +143,84 @@ async def broker_report_pdf(
         )
         arows = cur.fetchall()
 
+        # Sector flows (today vs previous trading day)
+        cur.execute("SELECT MAX(business_date) FROM public.trades WHERE business_date < %s", (business_date,))
+        prev_date = cur.fetchone()[0]
+
+        cur.execute(
+            """
+            SELECT stock_symbol, COALESCE(SUM(amount),0)::numeric AS amt
+            FROM public.trades
+            WHERE business_date=%s AND buyer_member_id=%s
+            GROUP BY stock_symbol
+            """,
+            (business_date, str(broker_id)),
+        )
+        buys_today = {(sym or "").strip().upper(): float(amt or 0) for sym, amt in cur.fetchall()}
+
+        cur.execute(
+            """
+            SELECT stock_symbol, COALESCE(SUM(amount),0)::numeric AS amt
+            FROM public.trades
+            WHERE business_date=%s AND seller_member_id=%s
+            GROUP BY stock_symbol
+            """,
+            (business_date, str(broker_id)),
+        )
+        sells_today = {(sym or "").strip().upper(): float(amt or 0) for sym, amt in cur.fetchall()}
+
+        buys_prev, sells_prev = {}, {}
+        if prev_date is not None:
+            cur.execute(
+                """
+                SELECT stock_symbol, COALESCE(SUM(amount),0)::numeric AS amt
+                FROM public.trades
+                WHERE business_date=%s AND buyer_member_id=%s
+                GROUP BY stock_symbol
+                """,
+                (prev_date, str(broker_id)),
+            )
+            buys_prev = {(sym or "").strip().upper(): float(amt or 0) for sym, amt in cur.fetchall()}
+
+            cur.execute(
+                """
+                SELECT stock_symbol, COALESCE(SUM(amount),0)::numeric AS amt
+                FROM public.trades
+                WHERE business_date=%s AND seller_member_id=%s
+                GROUP BY stock_symbol
+                """,
+                (prev_date, str(broker_id)),
+            )
+            sells_prev = {(sym or "").strip().upper(): float(amt or 0) for sym, amt in cur.fetchall()}
+
+        sector_map = {
+            "AKJCL": "Hydro Power", "API": "Hydro Power", "SYPNL": "Hydro Power",
+            "SSHL": "Hydro Power", "SAIL": "Hydro Power", "RIDI": "Hydro Power",
+            "NGPL": "Hydro Power", "SAHAS": "Hydro Power", "SMHL": "Hydro Power",
+            "NMB": "Commercial Banks"
+        }
+
+        sector_flows = {}
+        for sym in set(buys_today) | set(sells_today):
+            sec = sector_map.get(sym, "Unknown")
+            net = buys_today.get(sym, 0.0) - sells_today.get(sym, 0.0)
+            prev_net = buys_prev.get(sym, 0.0) - sells_prev.get(sym, 0.0)
+            rec = sector_flows.get(sec, {"net_amount": 0.0, "prev_net_amount": 0.0})
+            rec["net_amount"] += net
+            rec["prev_net_amount"] += prev_net
+            sector_flows[sec] = rec
+
+        sector_rows = []
+        for sec, rec in sector_flows.items():
+            sector_rows.append((
+                sec,
+                round(rec["net_amount"], 2),
+                round(rec["prev_net_amount"], 2),
+                round(rec["net_amount"] - rec["prev_net_amount"], 2),
+            ))
+        sector_rows.sort(key=lambda x: abs(x[1]), reverse=True)
+        sector_rows = sector_rows[:6]
+
     # ── PDF ───────────────────────────────────────────────────────────────────
     try:
         from fpdf import FPDF
@@ -328,6 +406,35 @@ async def broker_report_pdf(
                 pdf.rect(bx, y + 2, bw, 3, "F")
             pdf.ln()
 
+    # ── SECTOR FLOWS ──────────────────────────────────────────────────────────
+    if sector_rows:
+        pdf.section_title("Sector Flows")
+        y = pdf.get_y()
+        pdf.set_fill_color(*C_BG)
+        pdf.rect(10, y, 190, 7, "F")
+        pdf.set_xy(13, y)
+        pdf.set_text_color(*C_MUTED)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.cell(55, 7, _pdf_safe("SECTOR"))
+        pdf.cell(40, 7, _pdf_safe("NET"))
+        pdf.cell(40, 7, _pdf_safe("PREV NET"))
+        pdf.cell(0, 7, _pdf_safe("DELTA"))
+        pdf.ln()
+
+        for sec, net_amt, prev_amt, delta_amt in sector_rows:
+            y = pdf.get_y()
+            pdf.set_fill_color(*C_SURFACE)
+            pdf.rect(10, y, 190, 7, "F")
+            pdf.set_xy(13, y)
+            pdf.set_text_color(*C_TEXT)
+            pdf.set_font("Helvetica", "", 8)
+            pdf.cell(55, 7, _pdf_safe(sec))
+            pdf.cell(40, 7, _pdf_safe(_fmt(net_amt)))
+            pdf.cell(40, 7, _pdf_safe(_fmt(prev_amt)))
+            pdf.set_text_color(*(C_GREEN if delta_amt >= 0 else C_RED))
+            pdf.cell(0, 7, _pdf_safe(f"{'+' if delta_amt >= 0 else ''}{_fmt(delta_amt)}"))
+            pdf.ln()
+
     # ── ANOMALIES ─────────────────────────────────────────────────────────────
     pdf.section_title("Anomaly Detection Flags")
 
@@ -356,25 +463,25 @@ async def broker_report_pdf(
 
             y = pdf.get_y()
             pdf.set_fill_color(*C_SURFACE)
-            pdf.rect(10, y, 190, 15, "F")
+            pdf.rect(10, y, 190, 11, "F")
             pdf.set_fill_color(*acolor)
-            pdf.rect(10, y, 3, 15, "F")
+            pdf.rect(10, y, 3, 11, "F")
 
-            pdf.set_xy(15, y + 2)
+            pdf.set_xy(15, y + 1.5)
             pdf.set_text_color(*acolor)
-            pdf.set_font("Helvetica", "B", 9)
-            pdf.cell(120, 5, _pdf_safe(label))
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.cell(120, 4, _pdf_safe(label))
 
-            pdf.set_xy(158, y + 2)
+            pdf.set_xy(158, y + 1.5)
             pdf.set_fill_color(*acolor)
             pdf.set_text_color(*C_BG)
-            pdf.set_font("Helvetica", "B", 8)
-            pdf.cell(40, 5, _pdf_safe(f"Score: {score_f:.3f}"), align="C", fill=True)
+            pdf.set_font("Helvetica", "B", 7)
+            pdf.cell(40, 4, _pdf_safe(f"Score: {score_f:.3f}"), align="C", fill=True)
 
             # Details
-            pdf.set_xy(15, y + 9)
+            pdf.set_xy(15, y + 6.5)
             pdf.set_text_color(*C_MUTED)
-            pdf.set_font("Helvetica", "", 8)
+            pdf.set_font("Helvetica", "", 7)
             det_str = ""
             try:
                 if isinstance(details, dict):
@@ -397,8 +504,8 @@ async def broker_report_pdf(
                 det_str = "  |  ".join(parts) if parts else ""
             except Exception:
                 det_str = ""
-            pdf.cell(0, 4, _pdf_safe(det_str[:110]))
-            pdf.ln(6)
+            pdf.cell(0, 3, _pdf_safe(det_str[:110]))
+            pdf.ln(4)
 
     # ── CLOSING NOTE ──────────────────────────────────────────────────────────
     pdf.ln(4)
