@@ -207,9 +207,8 @@ async def broker_report_pdf(
 
         def kv_row(self, key: str, value: str, shade: bool = False):
             y = self.get_y()
-            if shade:
-                self.set_fill_color(*C_SURFACE)
-                self.rect(10, y, 190, 7, "F")
+            self.set_fill_color(*C_SURFACE)
+            self.rect(10, y, 190, 7, "F")
             self.set_xy(13, y)
             self.set_text_color(*C_MUTED)
             self.set_font("Helvetica", "", 9)
