@@ -189,6 +189,17 @@ async def panel_dashboard(request: Request, admin: str = Depends(require_panel_a
         pending_payments = [dict(zip(["id","broker_id","amount","months","bank_name","txn_reference","status","requested_at","notes"], r)) for r in cur.fetchall()]
         cur.execute("SELECT id,broker_id,amount,months,bank_name,txn_reference,status,requested_at,reviewed_at,notes FROM public.payment_requests ORDER BY requested_at DESC LIMIT 50")
         all_payments = [dict(zip(["id","broker_id","amount","months","bank_name","txn_reference","status","requested_at","reviewed_at","notes"], r)) for r in cur.fetchall()]
+    # Fix datetime serialization for tojson
+    import datetime
+    def _serial(obj):
+        if isinstance(obj, (datetime.date, datetime.datetime)):
+            return obj.isoformat()
+        return str(obj)
+    for b in brokers:
+        for k in list(b.keys()):
+            if isinstance(b[k], (datetime.date, datetime.datetime)):
+                b[k] = b[k].isoformat()
+
     return templates.TemplateResponse("admin_dashboard.html", {
         "request": request, "admin": admin, "brokers": brokers,
         "pending_payments": pending_payments, "all_payments": all_payments,
