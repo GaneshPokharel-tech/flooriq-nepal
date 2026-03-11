@@ -233,3 +233,23 @@ async def panel_extend(broker_id: str, days: int = Form(default=30), admin: str 
         cur.execute("INSERT INTO public.brokers_subscription (broker_id, trial_end, plan, is_active) VALUES (%s, CURRENT_DATE + %s, 'trial', true) ON CONFLICT (broker_id) DO UPDATE SET trial_end = GREATEST(COALESCE(brokers_subscription.trial_end, CURRENT_DATE), CURRENT_DATE) + %s", (broker_id, datetime.timedelta(days=days), datetime.timedelta(days=days)))
     conn.commit()
     return RedirectResponse("/admin/panel?msg=trial_extended", status_code=302)
+
+
+@router.post("/admin/panel/broker/{broker_id}/set-email")
+async def panel_set_email(
+    broker_id: str,
+    request: Request,
+    admin: str = Depends(require_panel_admin),
+    conn: psycopg.Connection = Depends(db_conn),
+):
+    payload = await request.json()
+    email = (payload.get("email") or "").strip().lower()
+    with conn.cursor() as cur:
+        cur.execute(
+            """INSERT INTO public.brokers_subscription (broker_id, email, is_active)
+               VALUES (%s, %s, true)
+               ON CONFLICT (broker_id) DO UPDATE SET email = EXCLUDED.email""",
+            (str(broker_id), email)
+        )
+    conn.commit()
+    return {"ok": True}

@@ -161,3 +161,152 @@ async def logout_post(request: Request):
     resp = RedirectResponse(url="/login", status_code=303)
     resp.delete_cookie(key=(s.broker_cookie_name or "flooriq_broker"), path="/")
     return resp
+
+
+# ── Forgot Password ────────────────────────────────────────────────────────────
+
+import smtplib
+import secrets
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from app.database import get_conn
+
+def _send_reset_email(to_email: str, reset_url: str, broker_id: int):
+    s = Settings()
+    smtp_email = s.smtp_email if hasattr(s, 'smtp_email') else None
+    smtp_password = s.smtp_password if hasattr(s, 'smtp_password') else None
+    if not smtp_email:
+        import os
+        smtp_email = os.environ.get("SMTP_EMAIL")
+        smtp_password = os.environ.get("SMTP_PASSWORD")
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = "FloorIQ Nepal — Password Reset"
+    msg["From"] = f"FloorIQ Nepal <{smtp_email}>"
+    msg["To"] = to_email
+
+    html = f"""
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+      <h2 style="color:#00d084;">FloorIQ Nepal</h2>
+      <p>Broker <strong>#{broker_id}</strong> ko password reset request aayo.</p>
+      <p>Yo link 1 ghanta samma valid cha:</p>
+      <a href="{reset_url}" style="display:inline-block;margin:16px 0;padding:12px 24px;background:#00d084;color:#080c10;border-radius:8px;text-decoration:none;font-weight:700;">Reset Password</a>
+      <p style="color:#64748b;font-size:12px;">Tapain le request nagarnubhako ho bhane ignore garnus.</p>
+    </div>
+    """
+    msg.attach(MIMEText(html, "html"))
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(smtp_email, smtp_password)
+        server.sendmail(smtp_email, to_email, msg.as_string())
+
+
+def _make_reset_token(broker_id: int) -> str:
+    s = Settings()
+    ser = URLSafeTimedSerializer(s.broker_auth_secret or "flooriq-reset", salt="pw-reset")
+    return ser.dumps({"broker_id": broker_id})
+
+
+def _verify_reset_token(token: str):
+    s = Settings()
+    ser = URLSafeTimedSerializer(s.broker_auth_secret or "flooriq-reset", salt="pw-reset")
+    try:
+        data = ser.loads(token, max_age=3600)
+        return data.get("broker_id")
+    except (BadSignature, SignatureExpired):
+        return None
+
+
+@router.get("/forgot-password", response_class=HTMLResponse)
+async def forgot_password_page(request: Request):
+    return templates.TemplateResponse("forgot_password.html", {"request": request, "error": None, "success": None})
+
+
+@router.post("/forgot-password", response_class=HTMLResponse)
+async def forgot_password_submit(request: Request):
+    payload = await request.form()
+    broker_id = str(payload.get("broker_id") or "").strip()
+    email = str(payload.get("email") or "").strip().lower()
+
+    err_ctx = {"request": request, "error": None, "success": None}
+
+    try:
+        bid = int(broker_id)
+        if bid < 1:
+            raise ValueError()
+    except Exception:
+        err_ctx["error"] = "Invalid Broker ID."
+        return templates.TemplateResponse("forgot_password.html", err_ctx)
+
+    # Check email in brokers_subscription table
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT email FROM public.brokers_subscription WHERE broker_id = %s",
+                    (str(bid),)
+                )
+                row = cur.fetchone()
+    except Exception:
+        row = None
+
+    # Always show success (security — don't reveal if email exists)
+    if row and row[0] and row[0].lower() == email:
+        try:
+            token = _make_reset_token(bid)
+            base_url = str(request.base_url).rstrip("/")
+            reset_url = f"{base_url}/reset-password?token={token}"
+            _send_reset_email(email, reset_url, bid)
+        except Exception as e:
+            err_ctx["error"] = f"Email pathaauna sakiyena: {str(e)}"
+            return templates.TemplateResponse("forgot_password.html", err_ctx)
+
+    return templates.TemplateResponse("forgot_password.html", {
+        "request": request,
+        "error": None,
+        "success": "Reset link pathaiyeko cha! Email check garnus (spam folder pani)."
+    })
+
+
+@router.get("/reset-password", response_class=HTMLResponse)
+async def reset_password_page(request: Request, token: str = ""):
+    broker_id = _verify_reset_token(token)
+    if not broker_id:
+        return templates.TemplateResponse("forgot_password.html", {
+            "request": request, "error": "Reset link expired ya invalid cha. Pheri try garnus.", "success": None
+        })
+    return templates.TemplateResponse("reset_password.html", {"request": request, "token": token, "error": None, "success": None})
+
+
+@router.post("/reset-password", response_class=HTMLResponse)
+async def reset_password_submit(request: Request, redis=Depends(redis_client)):
+    payload = await request.form()
+    token = str(payload.get("token") or "")
+    password = str(payload.get("password") or "")
+    confirm = str(payload.get("confirm") or "")
+
+    broker_id = _verify_reset_token(token)
+    if not broker_id:
+        return templates.TemplateResponse("forgot_password.html", {
+            "request": request, "error": "Reset link expired. Pheri try garnus.", "success": None
+        })
+
+    if len(password) < 8:
+        return templates.TemplateResponse("reset_password.html", {
+            "request": request, "token": token, "error": "Password kam se kam 8 characters hunu parcha.", "success": None
+        })
+
+    if password != confirm:
+        return templates.TemplateResponse("reset_password.html", {
+            "request": request, "token": token, "error": "Passwords match bhayena!", "success": None
+        })
+
+    from app.broker_auth import hash_password, set_broker_config
+    pwd_hash = hash_password(password)
+    await set_broker_config(redis, int(broker_id), {"password_hash": pwd_hash})
+
+    return templates.TemplateResponse("reset_password.html", {
+        "request": request, "token": token, "error": None,
+        "success": "Password reset bhayo! Aba login garnus."
+    })

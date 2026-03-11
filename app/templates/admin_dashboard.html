@@ -312,6 +312,10 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
         <input type="number" id="mBrokerId" placeholder="e.g. 35" min="1" style="width:100%;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font:inherit;font-size:13px;outline:none;"/>
       </div>
       <div style="margin-bottom:12px;">
+        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);display:block;margin-bottom:6px;">Email (for password reset)</label>
+        <input type="email" id="mEmail" placeholder="broker@email.com" style="width:100%;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font:inherit;font-size:13px;outline:none;"/>
+      </div>
+      <div style="margin-bottom:12px;">
         <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);display:block;margin-bottom:6px;">Password</label>
         <input type="text" id="mPassword" placeholder="min 4 characters" style="width:100%;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font:inherit;font-size:13px;outline:none;"/>
       </div>
@@ -513,13 +517,23 @@ async function saveBroker() {
   const bid = document.getElementById("mBrokerId").value.trim();
   const pwd = document.getElementById("mPassword").value.trim();
   const plan = document.getElementById("mPlan").value;
+  const email = document.getElementById("mEmail").value.trim();
   const msgEl = document.getElementById("manageMsg");
   if (!bid || !pwd) {
     msgEl.style.cssText = "display:block;padding:8px 12px;border-radius:7px;font-size:13px;background:#ff4d4d12;border:1px solid #ff4d4d40;color:var(--red);";
     msgEl.textContent = "Broker ID ra password required!"; return;
   }
   try {
+    // Save password to Redis
     const res = await fetch(`/admin/brokers/set?broker_id=${bid}&password=${encodeURIComponent(pwd)}&plan=${plan}`, {method:"POST",credentials:"same-origin"});
+    // Save email to DB subscription table
+    if (email) {
+      await fetch(`/admin/panel/broker/${bid}/set-email`, {
+        method:"POST", credentials:"same-origin",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({email})
+      });
+    }
     const d = await res.json();
     if (d.ok) {
       msgEl.style.cssText = "display:block;padding:8px 12px;border-radius:7px;font-size:13px;background:#00d08412;border:1px solid #00d08440;color:var(--green);";
