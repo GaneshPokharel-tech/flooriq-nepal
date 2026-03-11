@@ -111,6 +111,7 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
   </div>
   <div class="tab" onclick="switchTab('brokers')" id="tab-btn-brokers">All Brokers</div>
   <div class="tab" onclick="switchTab('history')" id="tab-btn-history">Payment History</div>
+  <div class="tab" onclick="switchTab('manage')">⚙️ Manage Brokers</div>
 </div>
 
 <!-- ═══ TAB: BROKER ANALYTICS ═══ -->
@@ -299,6 +300,45 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
     </tbody></table>
   </div>
 </div>
+
+<!-- ═══ TAB: MANAGE BROKERS ═══ -->
+<div id="tab-manage" class="tab-content">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="card">
+      <div class="card-head"><h2>➕ Add / Reset Broker Password</h2></div>
+      <div id="manageMsg" style="display:none;padding:8px 12px;border-radius:7px;font-size:13px;margin-bottom:12px;"></div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);display:block;margin-bottom:6px;">Broker ID</label>
+        <input type="number" id="mBrokerId" placeholder="e.g. 35" min="1" style="width:100%;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font:inherit;font-size:13px;outline:none;"/>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);display:block;margin-bottom:6px;">Password</label>
+        <input type="text" id="mPassword" placeholder="min 4 characters" style="width:100%;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font:inherit;font-size:13px;outline:none;"/>
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);display:block;margin-bottom:6px;">Plan</label>
+        <select id="mPlan" style="width:100%;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font:inherit;font-size:13px;outline:none;">
+          <option value="free">Free</option>
+          <option value="paid">Paid</option>
+        </select>
+      </div>
+      <button class="btn approve" style="width:100%;justify-content:center;padding:10px;" onclick="saveBroker()">💾 Save Broker</button>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>📋 How it works</h2></div>
+      <div style="font-size:13px;color:var(--muted);line-height:2;">
+        <div>1️⃣ Broker ID enter garnus (NEPSE number)</div>
+        <div>2️⃣ Password set garnus — broker lai share garnus</div>
+        <div>3️⃣ Plan: <strong style="color:var(--text);">free</strong> = limited, <strong style="color:var(--text);">paid</strong> = full access</div>
+        <div>4️⃣ Broker <code style="background:var(--surface);padding:2px 6px;border-radius:4px;">/login</code> maa login garcha</div>
+        <div style="margin-top:12px;padding:10px;background:var(--surface);border-radius:8px;border:1px solid var(--border);">
+          <div style="font-size:11px;color:var(--amber);margin-bottom:4px;font-weight:600;">🔑 PASSWORD RESET:</div>
+          <div>Same broker ID → naya password → Save!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 </main>
 
 <script>
@@ -462,10 +502,35 @@ async function loadAdminBroker() {
 }
 
 function switchTab(name) {
-  const names = ["analytics","payments","brokers","history"];
+  const names = ["analytics","payments","brokers","history","manage"];
   document.querySelectorAll(".tab").forEach((t,i) => t.classList.toggle("active", names[i] === name));
   document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
   document.getElementById("tab-" + name).classList.add("active");
+}
+
+
+async function saveBroker() {
+  const bid = document.getElementById("mBrokerId").value.trim();
+  const pwd = document.getElementById("mPassword").value.trim();
+  const plan = document.getElementById("mPlan").value;
+  const msgEl = document.getElementById("manageMsg");
+  if (!bid || !pwd) {
+    msgEl.style.cssText = "display:block;padding:8px 12px;border-radius:7px;font-size:13px;background:#ff4d4d12;border:1px solid #ff4d4d40;color:var(--red);";
+    msgEl.textContent = "Broker ID ra password required!"; return;
+  }
+  try {
+    const res = await fetch(`/admin/brokers/set?broker_id=${bid}&password=${encodeURIComponent(pwd)}&plan=${plan}`, {method:"POST",credentials:"same-origin"});
+    const d = await res.json();
+    if (d.ok) {
+      msgEl.style.cssText = "display:block;padding:8px 12px;border-radius:7px;font-size:13px;background:#00d08412;border:1px solid #00d08440;color:var(--green);";
+      msgEl.textContent = "✅ Broker #" + bid + " saved! Plan: " + plan;
+      document.getElementById("mBrokerId").value = "";
+      document.getElementById("mPassword").value = "";
+    } else { throw new Error(d.detail || "Failed"); }
+  } catch(e) {
+    msgEl.style.cssText = "display:block;padding:8px 12px;border-radius:7px;font-size:13px;background:#ff4d4d12;border:1px solid #ff4d4d40;color:var(--red);";
+    msgEl.textContent = "Error: " + e.message;
+  }
 }
 
 function toggleReject(id) {
