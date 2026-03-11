@@ -162,7 +162,7 @@ async def panel_dashboard(request: Request, admin: str = Depends(require_panel_a
         """, (today, today))
         sub_rows = [dict(zip(["broker_id","plan","is_active","trial_end","subscription_end","email","phone","created_at","status"], r)) for r in cur.fetchall()]
 
-        cur.execute("SELECT DISTINCT broker_id FROM public.broker_daily_features ORDER BY broker_id")
+        cur.execute("SELECT DISTINCT broker_id FROM public.broker_daily_features WHERE broker_id > 0 ORDER BY broker_id")
         feature_bids = [str(r[0]) for r in cur.fetchall()]
 
         brokers_by_id = {str(b["broker_id"]): b for b in sub_rows}
@@ -192,7 +192,7 @@ async def panel_dashboard(request: Request, admin: str = Depends(require_panel_a
     return templates.TemplateResponse("admin_dashboard.html", {
         "request": request, "admin": admin, "brokers": brokers,
         "pending_payments": pending_payments, "all_payments": all_payments,
-        "total_brokers": len(brokers), "active_brokers": sum(1 for b in brokers if b["status"] in ("paid","trial","unprovisioned")),
+        "total_brokers": len(brokers), "active_brokers": sum(1 for b in brokers if b["status"] == "unprovisioned"),
         "expired": sum(1 for b in brokers if b["status"]=="expired"), "pending_count": len(pending_payments), "today": today,
     })
 
