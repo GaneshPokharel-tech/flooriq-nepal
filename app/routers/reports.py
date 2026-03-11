@@ -310,9 +310,8 @@ async def broker_report_pdf(
 
         for i, (sym, amt, pct) in enumerate(top_symbols[:6]):
             y = pdf.get_y()
-            if i % 2 == 0:
-                pdf.set_fill_color(*C_SURFACE)
-                pdf.rect(10, y, 190, 7, "F")
+            pdf.set_fill_color(*C_SURFACE)
+            pdf.rect(10, y, 190, 7, "F")
             pdf.set_xy(13, y)
             pdf.set_text_color(*C_GREEN)
             pdf.set_font("Helvetica", "B", 9)
