@@ -88,7 +88,11 @@ async def login_submit(
     try:
         payload = await request.json()
     except Exception:
-        payload = {}
+        try:
+            form = await request.form()
+            payload = dict(form)
+        except Exception:
+            payload = {}
 
     broker_id = str(payload.get("broker_id") or "").strip()
     password = str(payload.get("password") or "")
