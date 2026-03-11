@@ -260,13 +260,13 @@ async def forgot_password_submit(request: Request):
             reset_url = f"{base_url}/reset-password?token={token}"
             _send_reset_email(email, reset_url, bid)
         except Exception as e:
-            err_ctx["error"] = f"Email pathaauna sakiyena: {str(e)}"
+            err_ctx["error"] = f"Failed to send email: {str(e)}"
             return templates.TemplateResponse("forgot_password.html", err_ctx)
 
     return templates.TemplateResponse("forgot_password.html", {
         "request": request,
         "error": None,
-        "success": "Reset link pathaiyeko cha! Email check garnus (spam folder pani)."
+        "success": "Reset link sent! Please check your email (including spam folder)."
     })
 
 
