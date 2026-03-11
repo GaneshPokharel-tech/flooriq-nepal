@@ -345,12 +345,12 @@ function getBrokerMeta(bid) {
 
 function fillBrokerMeta(bid) {
   const meta = getBrokerMeta(bid);
-  document.getElementById("aBrokerStatus").innerHTML = meta ? `<span class="pill ${meta.status}">${String(meta.status || "—").toUpperCase()}</span>` : "Custom / Unknown";
-  document.getElementById("aBrokerPlan").textContent = meta?.plan ? String(meta.plan).toUpperCase() : "—";
-  document.getElementById("aBrokerActive").textContent = meta ? (meta.is_active ? "Active" : "Disabled") : "—";
-  document.getElementById("aBrokerSubEnd").textContent = meta?.subscription_end || "—";
-  document.getElementById("aBrokerTrialEnd").textContent = meta?.trial_end || "—";
-  document.getElementById("aBrokerContact").textContent = [meta?.email, meta?.phone].filter(Boolean).join(" / ") || "—";
+  document.getElementById("aBrokerStatus").innerHTML = meta ? `<span class="pill ${meta.status === "unprovisioned" ? "pending" : meta.status}">${String(meta.status || "—").toUpperCase()}</span>` : "Not found";
+  document.getElementById("aBrokerPlan").textContent = meta?.plan ? String(meta.plan).toUpperCase() : (meta ? "Not set" : "—");
+  document.getElementById("aBrokerActive").textContent = meta ? (meta.status === "unprovisioned" ? "Not provisioned" : (meta.is_active ? "Active" : "Disabled")) : "—";
+  document.getElementById("aBrokerSubEnd").textContent = meta?.subscription_end || (meta ? "Not set" : "—");
+  document.getElementById("aBrokerTrialEnd").textContent = meta?.trial_end || (meta ? "Not set" : "—");
+  document.getElementById("aBrokerContact").textContent = [meta?.email, meta?.phone].filter(Boolean).join(" / ") || (meta ? "Not set" : "—");
   const rowBtn = document.getElementById("adminBrokerRowBtn");
   rowBtn.style.display = meta ? "inline-flex" : "none";
 }
