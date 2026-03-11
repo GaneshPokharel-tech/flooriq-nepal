@@ -34,6 +34,12 @@ def _fmt(v, decimals=2):
         return str(v) if v is not None else "-"
 
 
+def _pdf_safe(text):
+    if text is None:
+        return "-"
+    return str(text).replace("—", "-").replace("₨", "Rs.").replace("✓", "OK")
+
+
 @router.get("/reports/broker/{broker_id}.pdf")
 async def broker_report_pdf(
     request: Request,
@@ -167,10 +173,10 @@ async def broker_report_pdf(
             self.set_xy(10, 7)
             self.set_text_color(*C_GREEN)
             self.set_font("Helvetica", "B", 13)
-            self.cell(32, 8, "FloorIQ")
+            self.cell(32, 8, _pdf_safe("FloorIQ"))
             self.set_text_color(*C_MUTED)
             self.set_font("Helvetica", "", 10)
-            self.cell(0, 8, " Nepal  \u2014  Broker Intelligence Report")
+            self.cell(0, 8, _pdf_safe(" Nepal  \u2014  Broker Intelligence Report"))
             self.set_y(24)
 
         def footer(self):
@@ -196,7 +202,7 @@ async def broker_report_pdf(
             self.set_xy(15, y)
             self.set_text_color(*C_GREEN)
             self.set_font("Helvetica", "B", 9)
-            self.cell(0, 8, title.upper())
+            self.cell(0, 8, _pdf_safe(title.upper()))
             self.ln(10)
 
         def kv_row(self, key: str, value: str, shade: bool = False):
@@ -207,10 +213,10 @@ async def broker_report_pdf(
             self.set_xy(13, y)
             self.set_text_color(*C_MUTED)
             self.set_font("Helvetica", "", 9)
-            self.cell(85, 7, key)
+            self.cell(85, 7, _pdf_safe(key))
             self.set_text_color(*C_TEXT)
             self.set_font("Helvetica", "B", 9)
-            self.cell(0, 7, str(value))
+            self.cell(0, 7, _pdf_safe(value))
             self.ln()
 
     pdf = FloorIQPDF(orientation="P", unit="mm", format="A4")
@@ -235,14 +241,14 @@ async def broker_report_pdf(
     pdf.set_xy(16, y_t + 8)
     pdf.set_text_color(*C_TEXT)
     pdf.set_font("Helvetica", "B", 15)
-    pdf.cell(120, 8, f"Broker #{broker_id}")
+    pdf.cell(120, 8, _pdf_safe(f"Broker #{broker_id}"))
 
     # Risk badge
     pdf.set_xy(152, y_t + 6)
     pdf.set_fill_color(*risk_color)
     pdf.set_text_color(*C_BG)
     pdf.set_font("Helvetica", "B", 9)
-    pdf.cell(46, 10, f"RISK: {risk}", align="C", fill=True)
+    pdf.cell(46, 10, _pdf_safe(f"RISK: {risk}"), align="C", fill=True)
 
     # Date / HHI
     pdf.set_xy(16, y_t + 17)
@@ -250,7 +256,7 @@ async def broker_report_pdf(
     pdf.set_font("Helvetica", "", 8)
     pdf.cell(
         0, 5,
-        f"Date: {summary.get('business_date')}   |   HHI: {hhi:.0f}   |   Top1: {top1_pct:.1f}%",
+         _pdf_safe(f"Date: {summary.get('business_date')}   |   HHI: {hhi:.0f}   |   Top1: {top1_pct:.1f}%"),
     )
 
     # Disclaimer
@@ -259,7 +265,7 @@ async def broker_report_pdf(
     pdf.set_font("Helvetica", "I", 8)
     pdf.multi_cell(
         190, 5,
-        "SEBON Safe: Descriptive market analytics only. "
+        _pdf_safe("SEBON Safe: Descriptive market analytics only. "),
         "Does not constitute investment advice or trading recommendations.",
     )
 
@@ -288,7 +294,7 @@ async def broker_report_pdf(
     if not top_symbols:
         pdf.set_text_color(*C_MUTED)
         pdf.set_font("Helvetica", "", 9)
-        pdf.cell(0, 6, "No data available")
+        pdf.cell(0, 6, _pdf_safe("No data available"))
         pdf.ln()
     else:
         # Header row
@@ -298,10 +304,10 @@ async def broker_report_pdf(
         pdf.set_xy(13, y)
         pdf.set_text_color(*C_MUTED)
         pdf.set_font("Helvetica", "B", 8)
-        pdf.cell(28, 7, "SYMBOL")
-        pdf.cell(65, 7, "AMOUNT")
-        pdf.cell(32, 7, "SHARE %")
-        pdf.cell(0,  7, "BAR")
+        pdf.cell(28, 7, _pdf_safe("SYMBOL"))
+        pdf.cell(65, 7, _pdf_safe("AMOUNT"))
+        pdf.cell(32, 7, _pdf_safe("SHARE %"))
+        pdf.cell(0,  7, _pdf_safe("BAR"))
         pdf.ln()
 
         for i, (sym, amt, pct) in enumerate(top_symbols[:10]):
@@ -312,11 +318,11 @@ async def broker_report_pdf(
             pdf.set_xy(13, y)
             pdf.set_text_color(*C_GREEN)
             pdf.set_font("Helvetica", "B", 9)
-            pdf.cell(28, 7, str(sym))
+            pdf.cell(28, 7, _pdf_safe(sym))
             pdf.set_text_color(*C_TEXT)
             pdf.set_font("Helvetica", "", 9)
-            pdf.cell(65, 7, f"Rs. {amt:,.2f}")
-            pdf.cell(32, 7, f"{pct:.2f}%")
+            pdf.cell(65, 7, _pdf_safe(f"Rs. {amt:,.2f}"))
+            pdf.cell(32, 7, _pdf_safe(f"{pct:.2f}%"))
             # Mini bar
             bx = pdf.get_x()
             bw = min(pct / 100 * 50, 50)
@@ -344,7 +350,7 @@ async def broker_report_pdf(
         pdf.set_xy(13, y)
         pdf.set_text_color(*C_GREEN)
         pdf.set_font("Helvetica", "B", 9)
-        pdf.cell(0, 8, "No anomalies detected for this date.")
+        pdf.cell(0, 8, _pdf_safe("No anomalies detected for this date."))
         pdf.ln()
     else:
         for atype, score, details in arows:
@@ -360,13 +366,13 @@ async def broker_report_pdf(
             pdf.set_xy(15, y + 2)
             pdf.set_text_color(*acolor)
             pdf.set_font("Helvetica", "B", 9)
-            pdf.cell(120, 5, label)
+            pdf.cell(120, 5, _pdf_safe(label))
 
             pdf.set_xy(158, y + 2)
             pdf.set_fill_color(*acolor)
             pdf.set_text_color(*C_BG)
             pdf.set_font("Helvetica", "B", 8)
-            pdf.cell(40, 5, f"Score: {score_f:.3f}", align="C", fill=True)
+            pdf.cell(40, 5, _pdf_safe(f"Score: {score_f:.3f}"), align="C", fill=True)
 
             # Details
             pdf.set_xy(15, y + 9)
@@ -394,7 +400,7 @@ async def broker_report_pdf(
                 det_str = "  |  ".join(parts) if parts else ""
             except Exception:
                 det_str = ""
-            pdf.cell(0, 4, det_str[:110])
+            pdf.cell(0, 4, _pdf_safe(det_str[:110]))
             pdf.ln(6)
 
     # ── CLOSING NOTE ──────────────────────────────────────────────────────────
@@ -404,7 +410,7 @@ async def broker_report_pdf(
     pdf.set_font("Helvetica", "I", 8)
     pdf.multi_cell(
         190, 5,
-        "Generated by FloorIQ Nepal. For informational purposes only. "
+        _pdf_safe("Generated by FloorIQ Nepal. For informational purposes only. "),
         "Risk scores are heuristic-based and not a definitive assessment of broker conduct.",
     )
 
