@@ -121,7 +121,7 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
       <select id="adminBrokerId">
         <option value="">— Select Broker —</option>
         {% for b in brokers %}
-        <option value="{{ b.broker_id }}">#{{ b.broker_id }} ({{ b.status }})</option>
+        <option value="{{ b.broker_id }}">#{{ b.broker_id }} · {{ b.status }}{% if b.plan %} · {{ b.plan }}{% elif b.status == "unprovisioned" %} · analytics only{% endif %}</option>
         {% endfor %}
         <!-- Manual entry option -->
         <option value="custom">— Type custom ID below —</option>
@@ -329,7 +329,7 @@ function scoreBar(score) {
 
 function setTbody(id, html) {
   const el = document.getElementById(id);
-  if (el) el.innerHTML = html || `<tr><td colspan="10" style="color:var(--muted);text-align:center;">No data</td></tr>`;
+  if (el) el.innerHTML = html || `<tr><td colspan="10" style="color:var(--muted);text-align:center;">No records to show</td></tr>`;
 }
 
 function showErr(msg) {
@@ -344,12 +344,12 @@ function getBrokerMeta(bid) {
 
 function fillBrokerMeta(bid) {
   const meta = getBrokerMeta(bid);
-  document.getElementById("aBrokerStatus").innerHTML = meta ? `<span class="pill ${meta.status === "unprovisioned" ? "pending" : meta.status}">${String(meta.status || "—").toUpperCase()}</span>` : "Not found";
-  document.getElementById("aBrokerPlan").textContent = meta?.plan ? String(meta.plan).toUpperCase() : (meta ? "Not set" : "—");
-  document.getElementById("aBrokerActive").textContent = meta ? (meta.status === "unprovisioned" ? "Not provisioned" : (meta.is_active ? "Active" : "Disabled")) : "—";
-  document.getElementById("aBrokerSubEnd").textContent = meta?.subscription_end || (meta ? "Not set" : "—");
-  document.getElementById("aBrokerTrialEnd").textContent = meta?.trial_end || (meta ? "Not set" : "—");
-  document.getElementById("aBrokerContact").textContent = [meta?.email, meta?.phone].filter(Boolean).join(" / ") || (meta ? "Not set" : "—");
+  document.getElementById("aBrokerStatus").innerHTML = meta ? `<span class="pill ${meta.status === "unprovisioned" ? "pending" : meta.status}">${String(meta.status || "—").toUpperCase()}</span>` : "Analytics-only broker";
+  document.getElementById("aBrokerPlan").textContent = meta?.plan ? String(meta.plan).toUpperCase() : (meta ? "Not configured" : "—");
+  document.getElementById("aBrokerActive").textContent = meta ? (meta.status === "unprovisioned" ? "Analytics only" : (meta.is_active ? "Active" : "Disabled")) : "—";
+  document.getElementById("aBrokerSubEnd").textContent = meta?.subscription_end || (meta ? "Not configured" : "—");
+  document.getElementById("aBrokerTrialEnd").textContent = meta?.trial_end || (meta ? "Not configured" : "—");
+  document.getElementById("aBrokerContact").textContent = [meta?.email, meta?.phone].filter(Boolean).join(" / ") || (meta ? "Not configured" : "—");
   const rowBtn = document.getElementById("adminBrokerRowBtn");
   rowBtn.style.display = meta ? "inline-flex" : "none";
 }
@@ -382,7 +382,7 @@ async function loadAdminBroker() {
   let bid = document.getElementById("adminBrokerId").value;
   if (bid === "custom") bid = document.getElementById("customBrokerId").value.trim();
   const date = document.getElementById("adminBrokerDate").value.trim();
-  if (!bid) { showErr("Broker ID select garnus!"); return; }
+  if (!bid) { showErr("Please select or enter a broker ID."); return; }
 
   showErr("");
   document.getElementById("adminBrokerContent").style.display = "none";
@@ -426,7 +426,7 @@ async function loadAdminBroker() {
     // Anomalies
     const anoms = d.anomalies || [];
     setTbody("aAnomalies", anoms.length === 0
-      ? `<tr><td colspan="3" style="color:var(--green);text-align:center;">✓ No anomalies</td></tr>`
+      ? `<tr><td colspan="3" style="color:var(--green);text-align:center;">✓ No anomaly flags</td></tr>`
       : anoms.map(a => {
           const det = a.details || {};
           const detStr = det.counterparty ? `↔ Broker ${det.counterparty}` : (det.symbol || "");
@@ -440,7 +440,7 @@ async function loadAdminBroker() {
     // Sector flows
     const flows = d.sector_flows || [];
     setTbody("aSectorFlows", flows.length === 0
-      ? `<tr><td colspan="4" style="color:var(--muted);text-align:center;">No sector data</td></tr>`
+      ? `<tr><td colspan="4" style="color:var(--muted);text-align:center;">No sector flow data</td></tr>`
       : flows.map(f => {
           const delta = f.delta_net_amount || 0;
           const dc = delta >= 0 ? "var(--green)" : "var(--red)";
