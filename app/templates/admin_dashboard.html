@@ -136,7 +136,6 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
       <input type="number" id="customBrokerId" placeholder="e.g. 35" min="1" style="min-width:120px;"/>
     </div>
     <button class="btn load" onclick="loadAdminBroker()">Load Analytics</button>
-    <a id="adminPdfBtn" href="#" target="_blank" style="display:none;" class="btn" style="background:var(--surface);border:1px solid var(--border);color:var(--muted);">📄 PDF</a>
   </div>
 
   <div id="adminBrokerErr" class="err-box"></div>
@@ -454,11 +453,8 @@ async function loadAdminBroker() {
         }).join(""));
 
     // PDF link
-    const pdfBtn = document.getElementById("adminPdfBtn");
-    pdfBtn.href = `/reports/broker/${bid}.pdf`;
-    pdfBtn.style.display = "inline-flex";
     const pdfBtn2 = document.getElementById("adminPdfBtn2");
-    pdfBtn2.href = pdfBtn.href;
+    pdfBtn2.href = `/reports/broker/${bid}.pdf`;
     pdfBtn2.style.display = "inline-flex";
 
     document.getElementById("adminBrokerContent").style.display = "block";
