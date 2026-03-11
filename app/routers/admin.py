@@ -281,7 +281,7 @@ async def debug_broker(broker_id: int, redis=Depends(redis_client)):
     }
 
 
-@router.post("/admin/debug-login/{broker_id}")
+@router.get("/admin/debug-login/{broker_id}")
 async def debug_login(broker_id: int, redis=Depends(redis_client)):
     from app.broker_auth import get_broker_config, verify_password
     cfg = await get_broker_config(redis, broker_id)
