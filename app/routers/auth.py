@@ -133,7 +133,14 @@ async def login_submit(
     except Exception:
         pass
 
-    resp = JSONResponse({"ok": True, "next": next_path})
+    # Check if form submission (browser) or API call (JSON)
+    content_type = request.headers.get("content-type", "")
+    is_form = "application/x-www-form-urlencoded" in content_type
+    
+    if is_form:
+        resp = RedirectResponse(url=next_path, status_code=303)
+    else:
+        resp = JSONResponse({"ok": True, "next": next_path})
 
     secure = (s.app_env == "prod")
     resp.set_cookie(
@@ -155,7 +162,11 @@ async def logout_get(request: Request):
     # convenience (demo). POST is also supported below.
     s = Settings()
     resp = RedirectResponse(url="/login", status_code=303)
-    resp.delete_cookie(key=(s.broker_cookie_name or "flooriq_broker"), path="/")
+    cookie_name = s.broker_cookie_name or "flooriq_broker"
+    # Delete cookie - try both secure and non-secure to ensure removal
+    resp.delete_cookie(key=cookie_name, path="/")
+    resp.delete_cookie(key=cookie_name, path="/", secure=True)
+    resp.delete_cookie(key=cookie_name, path="/", secure=False)
     return resp
 
 
@@ -163,7 +174,10 @@ async def logout_get(request: Request):
 async def logout_post(request: Request):
     s = Settings()
     resp = RedirectResponse(url="/login", status_code=303)
-    resp.delete_cookie(key=(s.broker_cookie_name or "flooriq_broker"), path="/")
+    cookie_name = s.broker_cookie_name or "flooriq_broker"
+    resp.delete_cookie(key=cookie_name, path="/")
+    resp.delete_cookie(key=cookie_name, path="/", secure=True)
+    resp.delete_cookie(key=cookie_name, path="/", secure=False)
     return resp
 
 
@@ -313,5 +327,5 @@ async def reset_password_submit(request: Request, redis=Depends(redis_client)):
 
     return templates.TemplateResponse("reset_password.html", {
         "request": request, "token": token, "error": None,
-        "success": "Password reset bhayo! Aba login garnus."
+        "success": "Password reset! login now."
     })
