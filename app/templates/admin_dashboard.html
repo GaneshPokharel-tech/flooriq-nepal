@@ -70,6 +70,12 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
 .broker-header .bid{font-family:'Space Mono',monospace;font-size:22px;font-weight:700;color:var(--green);}
 .loading{text-align:center;padding:40px;color:var(--muted);font-size:13px;}
 .err-box{background:#ff4d4d10;border:1px solid #ff4d4d30;border-radius:8px;padding:10px 14px;font-size:13px;color:var(--red);margin-bottom:12px;display:none;}
+.broker-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:0 0 16px;}
+.broker-meta-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+.broker-meta-card .k{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:6px;}
+.broker-meta-card .v{font-size:14px;font-weight:600;word-break:break-word;}
+.quick-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.btn.ghost{background:var(--surface);border:1px solid var(--border);color:var(--text);}
 </style>
 </head>
 <body>
@@ -146,6 +152,20 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
         <span id="aRiskPill" class="pill">—</span>
         <span style="font-size:12px;color:var(--muted);" id="aDateLabel">—</span>
       </div>
+    </div>
+
+    <div class="broker-meta-grid">
+      <div class="broker-meta-card"><div class="k">Status</div><div class="v" id="aBrokerStatus">—</div></div>
+      <div class="broker-meta-card"><div class="k">Plan</div><div class="v" id="aBrokerPlan">—</div></div>
+      <div class="broker-meta-card"><div class="k">Account</div><div class="v" id="aBrokerActive">—</div></div>
+      <div class="broker-meta-card"><div class="k">Subscription End</div><div class="v" id="aBrokerSubEnd">—</div></div>
+      <div class="broker-meta-card"><div class="k">Trial End</div><div class="v" id="aBrokerTrialEnd">—</div></div>
+      <div class="broker-meta-card"><div class="k">Contact</div><div class="v" id="aBrokerContact">—</div></div>
+    </div>
+
+    <div class="quick-actions">
+      <a id="adminPdfBtn2" href="#" target="_blank" style="display:none;" class="btn ghost">📄 Open PDF</a>
+      <button type="button" class="btn ghost" id="adminBrokerRowBtn" style="display:none;" onclick="jumpToBrokerRow()">📋 View in Brokers Table</button>
     </div>
 
     <!-- KPIs -->
@@ -231,7 +251,7 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
     <table><thead><tr><th>Broker ID</th><th>Status</th><th>Trial End</th><th>Sub End</th><th>Actions</th></tr></thead>
     <tbody>
     {% for b in brokers %}
-    <tr>
+    <tr id="broker-row-{{ b.broker_id }}">
       <td class="mono" style="font-weight:700;color:var(--green);">#{{ b.broker_id }}</td>
       <td><span class="pill {{ b.status }}">{{ b.status.upper() }}</span></td>
       <td style="font-size:12px;">{{ b.trial_end or '—' }}</td>
@@ -284,6 +304,7 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
 
 <script>
 const API = "";
+const BROKERS = {{ brokers | tojson }};
 const ANOM_LABELS = {
   wash_pair_roundtrip: "🔴 Wash Trade",
   wash_counterparty_dominance: "🟣 Counterparty Dom.",
@@ -318,9 +339,36 @@ function showErr(msg) {
   el.style.display = msg ? "block" : "none";
 }
 
+function getBrokerMeta(bid) {
+  return (BROKERS || []).find(b => String(b.broker_id) === String(bid)) || null;
+}
+
+function fillBrokerMeta(bid) {
+  const meta = getBrokerMeta(bid);
+  document.getElementById("aBrokerStatus").innerHTML = meta ? `<span class="pill ${meta.status}">${String(meta.status || "—").toUpperCase()}</span>` : "Custom / Unknown";
+  document.getElementById("aBrokerPlan").textContent = meta?.plan ? String(meta.plan).toUpperCase() : "—";
+  document.getElementById("aBrokerActive").textContent = meta ? (meta.is_active ? "Active" : "Disabled") : "—";
+  document.getElementById("aBrokerSubEnd").textContent = meta?.subscription_end || "—";
+  document.getElementById("aBrokerTrialEnd").textContent = meta?.trial_end || "—";
+  document.getElementById("aBrokerContact").textContent = [meta?.email, meta?.phone].filter(Boolean).join(" / ") || "—";
+  const rowBtn = document.getElementById("adminBrokerRowBtn");
+  rowBtn.style.display = meta ? "inline-flex" : "none";
+}
+
+function jumpToBrokerRow() {
+  const bid = document.getElementById("adminBrokerId").value === "custom"
+    ? document.getElementById("customBrokerId").value.trim()
+    : document.getElementById("adminBrokerId").value;
+  if (!bid) return;
+  switchTab("brokers");
+  const row = document.getElementById(`broker-row-${bid}`);
+  if (row) row.scrollIntoView({behavior:"smooth", block:"center"});
+}
+
 function viewBroker(bid) {
   switchTab("analytics");
   document.getElementById("adminBrokerId").value = bid;
+  fillBrokerMeta(bid);
   loadAdminBroker();
 }
 
@@ -349,26 +397,27 @@ async function loadAdminBroker() {
     const conc = d.concentration || {};
 
     document.getElementById("aBrokerTitle").textContent = `Broker #${bid}`;
-    document.getElementById("aDateLabel").textContent = c.business_date || "";
+    document.getElementById("aDateLabel").textContent = c.business_date || d.business_date || "";
+    fillBrokerMeta(bid);
 
     // Risk pill
-    const risk = d.risk?.level || "—";
+    const risk = (typeof d.risk === "string" ? d.risk : d.risk?.level) || "—";
     const rp = document.getElementById("aRiskPill");
     rp.textContent = risk;
-    rp.className = `pill ${risk === "HIGH" ? "expired" : risk === "MEDIUM" ? "pending" : "paid"}`;
+    rp.className = `pill ${risk === "HIGH" ? "expired" : risk === "MEDIUM" ? "pending" : risk === "LOW" ? "paid" : ""}`;
 
     // KPIs
     document.getElementById("aNetAmt").textContent = fmt(c.net_amount);
     document.getElementById("aBuyAmt").textContent = fmt(c.total_buy_amount);
     document.getElementById("aSellAmt").textContent = fmt(c.total_sell_amount);
-    document.getElementById("aHHI").textContent = conc.hhi_buy ? conc.hhi_buy.toFixed(0) : "—";
-    document.getElementById("aTop1").textContent = conc.top1_symbol_share ? conc.top1_symbol_share.toFixed(1) + "%" : "—";
+    document.getElementById("aHHI").textContent = conc.hhi ? Number(conc.hhi).toFixed(0) : "—";
+    document.getElementById("aTop1").textContent = conc.top1_share_pct ? Number(conc.top1_share_pct).toFixed(1) + "%" : "—";
     document.getElementById("aTradesBuy").textContent = c.trades_buy_count ?? "—";
     document.getElementById("aTradesSell").textContent = c.trades_sell_count ?? "—";
     document.getElementById("aSymbols").textContent = (c.unique_symbols_buy ?? "—") + " / " + (c.unique_symbols_sell ?? "—");
 
     // Top symbols
-    const syms = c.top_symbols || [];
+    const syms = conc.top_symbols || [];
     setTbody("aTopSymbols", syms.map(r => `<tr>
       <td class="mono" style="font-weight:700;color:var(--green);">${r.symbol}</td>
       <td>₨ ${fmt(r.amount)}</td>
@@ -408,6 +457,9 @@ async function loadAdminBroker() {
     const pdfBtn = document.getElementById("adminPdfBtn");
     pdfBtn.href = `/reports/broker/${bid}.pdf`;
     pdfBtn.style.display = "inline-flex";
+    const pdfBtn2 = document.getElementById("adminPdfBtn2");
+    pdfBtn2.href = pdfBtn.href;
+    pdfBtn2.style.display = "inline-flex";
 
     document.getElementById("adminBrokerContent").style.display = "block";
   } catch(e) { showErr("Error: " + e.message); }
