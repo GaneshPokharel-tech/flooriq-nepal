@@ -160,7 +160,31 @@ async def panel_dashboard(request: Request, admin: str = Depends(require_panel_a
                    ELSE 'expired' END AS status
             FROM public.brokers_subscription ORDER BY created_at DESC
         """, (today, today))
-        brokers = [dict(zip(["broker_id","plan","is_active","trial_end","subscription_end","email","phone","created_at","status"], r)) for r in cur.fetchall()]
+        sub_rows = [dict(zip(["broker_id","plan","is_active","trial_end","subscription_end","email","phone","created_at","status"], r)) for r in cur.fetchall()]
+
+        cur.execute("SELECT DISTINCT broker_id FROM public.broker_daily_features ORDER BY broker_id")
+        feature_bids = [str(r[0]) for r in cur.fetchall()]
+
+        brokers_by_id = {str(b["broker_id"]): b for b in sub_rows}
+        for bid in feature_bids:
+            if bid not in brokers_by_id:
+                brokers_by_id[bid] = {
+                    "broker_id": bid,
+                    "plan": None,
+                    "is_active": True,
+                    "trial_end": None,
+                    "subscription_end": None,
+                    "email": None,
+                    "phone": None,
+                    "created_at": None,
+                    "status": "unprovisioned",
+                }
+
+        brokers = sorted(
+            brokers_by_id.values(),
+            key=lambda b: int(str(b.get("broker_id") or 0))
+        )
+
         cur.execute("SELECT id,broker_id,amount,months,bank_name,txn_reference,status,requested_at,notes FROM public.payment_requests WHERE status='pending' ORDER BY requested_at ASC")
         pending_payments = [dict(zip(["id","broker_id","amount","months","bank_name","txn_reference","status","requested_at","notes"], r)) for r in cur.fetchall()]
         cur.execute("SELECT id,broker_id,amount,months,bank_name,txn_reference,status,requested_at,reviewed_at,notes FROM public.payment_requests ORDER BY requested_at DESC LIMIT 50")
@@ -168,7 +192,7 @@ async def panel_dashboard(request: Request, admin: str = Depends(require_panel_a
     return templates.TemplateResponse("admin_dashboard.html", {
         "request": request, "admin": admin, "brokers": brokers,
         "pending_payments": pending_payments, "all_payments": all_payments,
-        "total_brokers": len(brokers), "active_brokers": sum(1 for b in brokers if b["status"] in ("paid","trial")),
+        "total_brokers": len(brokers), "active_brokers": sum(1 for b in brokers if b["status"] in ("paid","trial","unprovisioned")),
         "expired": sum(1 for b in brokers if b["status"]=="expired"), "pending_count": len(pending_payments), "today": today,
     })
 
