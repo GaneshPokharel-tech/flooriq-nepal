@@ -760,3 +760,123 @@ async def market_hhi(
     }
     await _cache_set(redis, cache_key, payload)
     return payload
+
+
+@router.get("/insights/brokers/performance")
+async def broker_performance_rankings(
+    metric: str = "consistency_score",
+    limit: int = 20,
+    conn: psycopg.Connection = Depends(db_conn),
+    redis=Depends(redis_client),
+    _=Depends(broker_view_gate),
+):
+    """
+    Broker performance rankings with adaptive metrics
+    Shows basic metrics (9+ days) and advanced metrics (20+ days)
+    """
+    allowed_metrics = {
+        # Basic metrics (always available with 9+ days)
+        "consistency_score": "consistency_score",
+        "avg_daily_turnover": "avg_daily_turnover",
+        "symbol_diversification": "symbol_diversification",
+        "activity_rate": "activity_rate",
+        # Advanced metrics (20+ days required)
+        "sharpe_ratio": "sharpe_ratio",
+        "win_rate": "win_rate",
+        "profit_factor": "profit_factor",
+    }
+    
+    if metric not in allowed_metrics:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid metric. Choose from {list(allowed_metrics.keys())}"
+        )
+    
+    col = allowed_metrics[metric]
+    
+    cache_key = f"flooriq:performance:rankings:{metric}:limit:{limit}"
+    cached = await _cache_get(redis, cache_key)
+    if cached is not None:
+        return cached
+    
+    with conn.cursor() as cur:
+        # Get latest calculation date
+        cur.execute("SELECT MAX(calculation_date) FROM public.broker_performance_metrics")
+        latest_date = cur.fetchone()[0]
+        
+        if not latest_date:
+            raise HTTPException(status_code=404, detail="No performance data calculated yet")
+        
+        # Check data sufficiency
+        cur.execute("""
+            SELECT 
+                MAX(days_analyzed) as max_days,
+                BOOL_OR(data_sufficient_basic) as has_basic,
+                BOOL_OR(data_sufficient_advanced) as has_advanced
+            FROM public.broker_performance_metrics
+            WHERE calculation_date = %s
+        """, (latest_date,))
+        
+        max_days, has_basic, has_advanced = cur.fetchone()
+        
+        # Fetch rankings
+        cur.execute(f"""
+            SELECT 
+                broker_id,
+                days_analyzed,
+                avg_daily_turnover,
+                net_position_total,
+                consistency_score,
+                symbol_diversification,
+                sharpe_ratio,
+                win_rate,
+                profit_factor,
+                max_drawdown,
+                statistical_confidence,
+                data_sufficient_basic,
+                data_sufficient_advanced
+            FROM public.broker_performance_metrics
+            WHERE calculation_date = %s
+              AND broker_id > 0
+              AND {col} IS NOT NULL
+            ORDER BY {col} DESC NULLS LAST
+            LIMIT %s
+        """, (latest_date, limit))
+        
+        rows = cur.fetchall()
+        
+        rankings = []
+        for row in rows:
+            rankings.append({
+                "broker_id": row[0],
+                "days_analyzed": row[1],
+                "avg_daily_turnover": float(row[2]) if row[2] else None,
+                "net_position_total": float(row[3]) if row[3] else None,
+                "consistency_score": float(row[4]) if row[4] else None,
+                "symbol_diversification": float(row[5]) if row[5] else None,
+                "sharpe_ratio": float(row[6]) if row[6] else None,
+                "win_rate": float(row[7]) if row[7] else None,
+                "profit_factor": float(row[8]) if row[8] else None,
+                "max_drawdown": float(row[9]) if row[9] else None,
+                "statistical_confidence": float(row[10]) if row[10] else None,
+                "data_sufficient_basic": row[11],
+                "data_sufficient_advanced": row[12],
+            })
+    
+    payload = {
+        "disclaimer": DISCLAIMER,
+        "calculation_date": str(latest_date),
+        "metric": metric,
+        "data_status": {
+            "days_available": max_days,
+            "basic_metrics_available": has_basic,
+            "advanced_metrics_available": has_advanced,
+            "days_needed_for_advanced": 20,
+            "message": "⚠️ Insufficient data for advanced metrics" if not has_advanced else "Advanced metrics enabled"
+        },
+        "count": len(rankings),
+        "rankings": rankings
+    }
+    
+    await _cache_set(redis, cache_key, payload, ttl=300)
+    return payload

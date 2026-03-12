@@ -316,6 +316,50 @@
       </div>
 
 
+      <!-- Broker Performance Rankings -->
+      <div class="card fade d2" style="margin-bottom:16px;">
+        <div class="card-head">
+          <h2>Broker Performance Tracker</h2>
+          <span id="perfDataStatus" class="pill medium">9/20 Days</span>
+        </div>
+        
+        <!-- Data Status Warning -->
+        <div id="perfWarning" style="background:#f5a62310;border:1px solid #f5a62330;border-radius:8px;padding:10px 12px;font-size:12px;color:var(--amber);margin-bottom:12px;">
+          ⚠️ Basic metrics only. Advanced analytics unlock at 20+ trading days.
+        </div>
+        
+        <!-- Metric Selector -->
+        <div class="row" style="margin-bottom:12px;">
+          <div>
+            <label for="perfMetric">Ranking by</label>
+            <select id="perfMetric">
+              <option value="consistency_score">Consistency Score</option>
+              <option value="avg_daily_turnover">Avg Daily Turnover</option>
+              <option value="symbol_diversification">Symbol Diversity</option>
+              <option value="sharpe_ratio" disabled>Sharpe Ratio (20+ days)</option>
+              <option value="win_rate" disabled>Win Rate (20+ days)</option>
+              <option value="profit_factor" disabled>Profit Factor (20+ days)</option>
+            </select>
+          </div>
+          <button id="loadPerfBtn">Load Rankings</button>
+        </div>
+        
+        <!-- Rankings Table -->
+        <table>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Broker</th>
+              <th id="perfMetricCol">Score</th>
+              <th>Turnover</th>
+            </tr>
+          </thead>
+          <tbody id="perfRankings"></tbody>
+        </table>
+        
+        <div class="error" id="perfErr" style="display:none;"></div>
+      </div>
+
       <!-- Sector Rotation -->
       <div class="card fade d2" style="margin-bottom:16px;">
         <div class="card-head"><h2>Sector Rotation (Turnover Δ)</h2></div>
@@ -741,6 +785,61 @@
     `;
   }
 
+  // ── BROKER PERFORMANCE ──────────────────────────────────────────────────
+
+  async function loadPerformance() {
+    showErr("perfErr", "");
+    const metric = document.getElementById("perfMetric")?.value || "consistency_score";
+    
+    try {
+      const res = await fetch(`${API}/insights/brokers/performance?metric=${metric}&limit=15`, {credentials:"same-origin"});
+      if (!res.ok) {
+        showErr("perfErr", (await res.json().catch(()=>({}))).detail || res.statusText);
+        return;
+      }
+      
+      const d = await res.json();
+      const status = d.data_status || {};
+      
+      // Update status badge
+      const statusBadge = document.getElementById("perfDataStatus");
+      statusBadge.textContent = `${status.days_available}/${status.days_needed_for_advanced} Days`;
+      statusBadge.className = status.advanced_metrics_available ? "pill low" : "pill medium";
+      
+      // Update warning
+      const warning = document.getElementById("perfWarning");
+      if (status.advanced_metrics_available) {
+        warning.style.display = "none";
+        // Enable advanced metric options
+        document.querySelectorAll("#perfMetric option[disabled]").forEach(opt => opt.disabled = false);
+      } else {
+        warning.style.display = "block";
+        warning.textContent = status.message;
+      }
+      
+      // Update column header
+      document.getElementById("perfMetricCol").textContent = metric.replace(/_/g, " ");
+      
+      // Render rankings
+      const rankings = d.rankings || [];
+      setTbody("perfRankings", rankings.map((r, idx) => {
+        const scoreVal = r[metric];
+        const score = scoreVal != null ? scoreVal.toFixed(2) : "—";
+        const turnover = r.avg_daily_turnover ? fmt(r.avg_daily_turnover) : "—";
+        
+        return `<tr>
+          <td style="font-family:'Space Mono',monospace;font-weight:700;color:${idx < 3 ? 'var(--green)' : 'var(--text)'};">#${idx + 1}</td>
+          <td style="font-family:'Space Mono',monospace;font-weight:700;">${r.broker_id}</td>
+          <td>${score}</td>
+          <td>₨ ${turnover}</td>
+        </tr>`;
+      }).join(""));
+      
+    } catch(e) {
+      showErr("perfErr", e.message);
+    }
+  }
+
   // ── BUTTON WIRING ────────────────────────────────────────────────────────
 
   document.getElementById("loadBrokerBtn")?.addEventListener("click", loadBroker);
@@ -777,6 +876,7 @@
   document.getElementById("loadTopBrokersBtn")?.addEventListener("click", loadTopBrokers);
   document.getElementById("loadTopSymbolsBtn")?.addEventListener("click", loadTopSymbols);
   document.getElementById("loadHHIBtn")?.addEventListener("click", loadMarketHHI);
+  document.getElementById("loadPerfBtn")?.addEventListener("click", loadPerformance);
 
   // ── AUTO-LOAD if broker locked ───────────────────────────────────────────
   window.addEventListener("DOMContentLoaded", () => {
