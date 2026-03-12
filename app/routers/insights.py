@@ -647,3 +647,116 @@ async def sector_rotation(
     }
     await _cache_set(redis, cache_key, payload)
     return payload
+
+
+@router.get("/insights/market/hhi")
+async def market_hhi(
+    business_date: Optional[str] = None,
+    days: int = 7,
+    conn: psycopg.Connection = Depends(db_conn),
+    redis=Depends(redis_client),
+    _=Depends(broker_view_gate),
+):
+    """
+    Market-wide HHI (Herfindahl-Hirschman Index) - broker concentration.
+    Returns current HHI + historical trend + top contributing brokers.
+    """
+    cache_key = f"flooriq:market:hhi:{business_date or 'latest'}:days:{days}"
+    cached = await _cache_get(redis, cache_key)
+    if cached is not None:
+        return cached
+
+    with conn.cursor() as cur:
+        if business_date is None:
+            cur.execute("SELECT MAX(business_date) FROM public.broker_daily_features")
+            business_date = cur.fetchone()[0]
+            if business_date is None:
+                raise HTTPException(status_code=404, detail="No data found")
+
+        # Current day HHI calculation
+        cur.execute(
+            """
+            SELECT broker_id, total_buy_amount
+            FROM public.broker_daily_features
+            WHERE business_date = %s AND total_buy_amount > 0
+            ORDER BY total_buy_amount DESC
+            """,
+            (business_date,),
+        )
+        rows = cur.fetchall()
+
+        total_market = sum(float(r[1]) for r in rows)
+        hhi = 0.0
+        top_brokers = []
+        
+        if total_market > 0:
+            for broker_id, amt in rows:
+                share = float(amt) / total_market
+                hhi += share * share
+                if len(top_brokers) < 10:
+                    top_brokers.append({
+                        "broker_id": broker_id,
+                        "amount": float(amt),
+                        "market_share_pct": round(share * 100, 2)
+                    })
+            hhi = hhi * 10000
+
+        # Risk classification
+        if hhi >= 1800:
+            risk = "HIGH"
+        elif hhi >= 1000:
+            risk = "MEDIUM"
+        else:
+            risk = "LOW"
+
+        # Historical trend (last N days)
+        cur.execute(
+            """
+            SELECT DISTINCT business_date 
+            FROM public.broker_daily_features 
+            WHERE business_date <= %s 
+            ORDER BY business_date DESC 
+            LIMIT %s
+            """,
+            (business_date, days),
+        )
+        dates = [r[0] for r in cur.fetchall()]
+        dates.reverse()
+
+        trend = []
+        for date in dates:
+            cur.execute(
+                """
+                SELECT broker_id, total_buy_amount
+                FROM public.broker_daily_features
+                WHERE business_date = %s AND total_buy_amount > 0
+                """,
+                (date,),
+            )
+            day_rows = cur.fetchall()
+            day_total = sum(float(r[1]) for r in day_rows)
+            day_hhi = 0.0
+            
+            if day_total > 0:
+                for _, amt in day_rows:
+                    share = float(amt) / day_total
+                    day_hhi += share * share
+                day_hhi = day_hhi * 10000
+
+            trend.append({
+                "date": str(date),
+                "hhi": round(day_hhi, 2),
+                "total_market_amount": round(day_total, 2)
+            })
+
+    payload = {
+        "disclaimer": DISCLAIMER,
+        "business_date": str(business_date),
+        "hhi": round(hhi, 2),
+        "risk": risk,
+        "total_market_amount": round(total_market, 2),
+        "top_brokers": top_brokers,
+        "trend": trend,
+    }
+    await _cache_set(redis, cache_key, payload)
+    return payload

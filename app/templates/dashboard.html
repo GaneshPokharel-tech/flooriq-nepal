@@ -271,6 +271,51 @@
     <!-- ── RIGHT: MARKET WIDGETS ── -->
     <aside>
 
+      <!-- Market HHI Card -->
+      <div class="card fade d2" style="margin-bottom:16px;">
+        <div class="card-head">
+          <h2>Market Concentration (HHI)</h2>
+          <span id="hhiRisk" class="pill low">LOW</span>
+        </div>
+        
+        <div class="kpis" style="grid-template-columns:1fr 1fr;">
+          <div class="kpi">
+            <div class="k">HHI Index</div>
+            <div class="v" id="hhiValue" style="color:var(--amber);">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Market Amount</div>
+            <div class="v" id="hhiMarket" style="font-size:16px;">—</div>
+          </div>
+        </div>
+
+        <!-- HHI Trend Chart -->
+        <div style="margin:14px 0 10px;">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">7-Day Trend</div>
+          <svg id="hhiChart" viewBox="0 0 280 50" width="100%" height="50" fill="none">
+            <defs>
+              <linearGradient id="hhiGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#f5a623" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#f5a623" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+
+        <!-- Top Contributing Brokers -->
+        <div>
+          <h2 style="margin-bottom:8px;">Top Contributors</h2>
+          <table>
+            <thead><tr><th>Broker</th><th>Amount</th><th>Share %</th></tr></thead>
+            <tbody id="hhiTopBrokers"></tbody>
+          </table>
+        </div>
+
+        <button id="loadHHIBtn" style="margin-top:12px;width:100%;">Load Market HHI</button>
+        <div class="error" id="hhiErr" style="display:none;"></div>
+      </div>
+
+
       <!-- Sector Rotation -->
       <div class="card fade d2" style="margin-bottom:16px;">
         <div class="card-head"><h2>Sector Rotation (Turnover Δ)</h2></div>
@@ -616,6 +661,86 @@
     } catch(e) { showErr("topSymbolsErr", e.message); }
   }
 
+  // ── MARKET HHI ──────────────────────────────────────────────────────────
+
+  async function loadMarketHHI() {
+    const hhiErr = document.getElementById("hhiErr");
+    hhiErr.style.display = "none";
+    
+    try {
+      const res = await fetch(`${API}/insights/market/hhi?days=7`, {credentials:"same-origin"});
+      if (!res.ok) {
+        const e = await res.json().catch(()=>({detail: res.statusText}));
+        hhiErr.textContent = e.detail || res.statusText;
+        hhiErr.style.display = "block";
+        return;
+      }
+      const d = await res.json();
+      
+      // Display HHI value and risk
+      setText("hhiValue", d.hhi != null ? d.hhi.toFixed(0) : "—");
+      setText("hhiMarket", "₨ " + fmt(d.total_market_amount));
+      
+      const riskEl = document.getElementById("hhiRisk");
+      riskEl.textContent = d.risk || "LOW";
+      riskEl.className = "pill " + (d.risk || "low").toLowerCase();
+      
+      // Top contributing brokers
+      const topBrokers = d.top_brokers || [];
+      setTbody("hhiTopBrokers", topBrokers.slice(0, 5).map(b => `
+        <tr>
+          <td style="font-family:'Space Mono',monospace;font-weight:700;">${b.broker_id}</td>
+          <td>₨ ${fmt(b.amount)}</td>
+          <td>${b.market_share_pct}%</td>
+        </tr>`).join(""));
+      
+      // Render HHI trend chart
+      renderHHIChart(d.trend || []);
+      
+    } catch(e) {
+      hhiErr.textContent = "Network error: " + e.message;
+      hhiErr.style.display = "block";
+    }
+  }
+
+  function renderHHIChart(trend) {
+    if (!trend || trend.length === 0) return;
+    
+    const svg = document.getElementById("hhiChart");
+    const width = 280;
+    const height = 50;
+    const padding = 2;
+    
+    // Find min/max HHI for scaling
+    const values = trend.map(t => t.hhi);
+    const minHHI = Math.min(...values);
+    const maxHHI = Math.max(...values);
+    const range = maxHHI - minHHI || 1;
+    
+    // Generate path points
+    const points = trend.map((t, i) => {
+      const x = (i / (trend.length - 1)) * width;
+      const y = height - padding - ((t.hhi - minHHI) / range) * (height - 2 * padding);
+      return `${x},${y}`;
+    });
+    
+    const pathData = `M ${points.join(" L ")}`;
+    const areaData = `${pathData} L ${width},${height} L 0,${height} Z`;
+    
+    // Clear and redraw
+    svg.innerHTML = `
+      <defs>
+        <linearGradient id="hhiGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#f5a623" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#f5a623" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="${areaData}" fill="url(#hhiGrad)"/>
+      <path d="${pathData}" stroke="#f5a623" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="${points[points.length - 1].split(',')[0]}" cy="${points[points.length - 1].split(',')[1]}" r="3" fill="#f5a623"/>
+    `;
+  }
+
   // ── BUTTON WIRING ────────────────────────────────────────────────────────
 
   document.getElementById("loadBrokerBtn")?.addEventListener("click", loadBroker);
@@ -651,6 +776,7 @@
   document.getElementById("loadAnomaliesBtn")?.addEventListener("click", loadAnomalies);
   document.getElementById("loadTopBrokersBtn")?.addEventListener("click", loadTopBrokers);
   document.getElementById("loadTopSymbolsBtn")?.addEventListener("click", loadTopSymbols);
+  document.getElementById("loadHHIBtn")?.addEventListener("click", loadMarketHHI);
 
   // ── AUTO-LOAD if broker locked ───────────────────────────────────────────
   window.addEventListener("DOMContentLoaded", () => {
@@ -658,6 +784,7 @@
       loadBroker();
       loadAnomalies();
       loadSectors();
+      loadMarketHHI();
     }
   });
 </script>
