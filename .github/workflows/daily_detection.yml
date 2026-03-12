@@ -1,0 +1,31 @@
+name: Daily Wash Trading Detection
+
+on:
+  schedule:
+    - cron: '45 12 * * *'  # 6:30 PM Nepal time daily
+  workflow_dispatch:
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install psycopg python-dotenv
+      
+      - name: Run Detection
+        env:
+          SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_NAME: postgres
+          SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER }}
+          SUPABASE_DB_PORT: ${{ secrets.SUPABASE_DB_PORT }}
+        run: |
+          YESTERDAY=$(date -d "yesterday" +%Y-%m-%d)
+          PYTHONPATH=. python scripts/wash_trading_detector.py $YESTERDAY
