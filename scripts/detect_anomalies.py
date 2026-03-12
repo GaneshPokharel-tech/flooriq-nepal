@@ -204,14 +204,6 @@ def main():
                            "pair_total_amount": float(pair_total), "min_side_amount": float(min_side or 0),
                            "balance_ratio": float(bal or 0), "a_trades": int(trades_ab), "b_trades": int(trades_ba),
                            "pair_share_of_a_turnover": round(float(pair_total)/a_t if a_t > 0 else 0, 6)}
-                insert_anomaly(cur, d, "wash_pair_roundtrip", "broker", int(a), float(bal or 0), details)
-                details2 = dict(details)
-                details2["counterparty"] = int(a)
-                details2["pair_share_of_a_turnover"] = round(float(pair_total)/b_t if b_t > 0 else 0, 6)
-                insert_anomaly(cur, d, "wash_pair_roundtrip", "broker", int(b), float(bal or 0), details2)
-                pair_flags += 1
-            print(f"[4] wash_pair_roundtrip: {pair_flags} pairs flagged")
-
             # 5) Counterparty dominance
             cur.execute(
                 """
