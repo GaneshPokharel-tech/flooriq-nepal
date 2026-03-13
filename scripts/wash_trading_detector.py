@@ -300,7 +300,7 @@ def main():
             cur.execute("""
                 DELETE FROM public.anomalies 
                 WHERE business_date = %s 
-                  AND anomaly_type LIKE 'wash_candidate_%'
+                  AND anomaly_type LIKE 'wash_candidate_%%'
             """, (business_date,))
             print(f"Cleared old candidate anomaly rows for {business_date}")
             
