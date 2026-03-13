@@ -85,8 +85,23 @@ def calculate_enhanced_wash_score(
 
 def detect_enhanced_wash_trading(cur, business_date: str):
     print(f"\n{'='*70}")
-    print(f"ENHANCED WASH TRADING DETECTION V2.1: {business_date}")
+    print(f"WASH-TRADING CANDIDATE ANOMALY FLAGS: {business_date}")
     print(f"{'='*70}\n")
+
+    cur.execute("""
+        SELECT COUNT(DISTINCT business_date)
+        FROM public.trades
+        WHERE business_date <= %s
+    """, (business_date,))
+    available_days = int(cur.fetchone()[0] or 0)
+
+    history_enabled = available_days >= 20
+
+    print(f"Available history: {available_days} trading days")
+    if history_enabled:
+        print("Mode: history-enabled candidate analysis")
+    else:
+        print("Mode: base candidate analysis only (history threshold not met; circular flow disabled)")
     
     # Fetch high-value trades
     cur.execute("""
@@ -106,7 +121,7 @@ def detect_enhanced_wash_trading(cur, business_date: str):
     
     anomalies_to_insert = []
     
-    print("[1] Enhanced Round-Trip Analysis with Volume & Time Patterns...")
+    print("[1] Candidate Round-Trip Pattern Analysis...")
     
     by_symbol = defaultdict(list)
     for ttime, symbol, buyer, seller, qty, price, amount in trades:
@@ -180,11 +195,11 @@ def detect_enhanced_wash_trading(cur, business_date: str):
                     score = min(1.0, score * repetition_multiplier)
                     
                     if score >= 0.6 and total >= 500000:
-                        confidence = 'ULTRA_HIGH' if score >= 0.9 else ('HIGH' if score >= 0.8 else 'MEDIUM')
+                        risk_band = 'elevated' if score >= 0.9 else ('moderate' if score >= 0.8 else 'watch')
                         
                         anomalies_to_insert.append((
                             business_date,
-                            "wash_trading_v2.1_roundtrip",
+                            "wash_candidate_roundtrip",
                             "broker",
                             str(broker_a),
                             score,
@@ -200,7 +215,7 @@ def detect_enhanced_wash_trading(cur, business_date: str):
                                 'trades_today': total_trades_today,
                                 'time_of_day_risk': round(tod_multiplier, 2),
                                 'composite_score': score,
-                                'confidence': confidence
+                                'risk_band': risk_band
                             })
                         ))
                         
@@ -215,7 +230,7 @@ def detect_enhanced_wash_trading(cur, business_date: str):
     print(f"   Ultra-high (≥0.9): {ultra_high}")
     
     # 2. SELF-TRADES (same as before)
-    print("\n[2] Self-Trade Detection...")
+    print("\n[2] Candidate Self-Trade Analysis...")
     
     cur.execute("""
         SELECT buyer_member_id, stock_symbol, COUNT(*), SUM(amount)::numeric
@@ -232,7 +247,7 @@ def detect_enhanced_wash_trading(cur, business_date: str):
         
         anomalies_to_insert.append((
             business_date,
-            "wash_trading_v2.1_self_trade",
+            "wash_candidate_self_trade",
             "broker",
             str(broker_id),
             score,
@@ -247,57 +262,9 @@ def detect_enhanced_wash_trading(cur, business_date: str):
     print(f"   Found {self_count} self-trade patterns")
     
     # 3. CIRCULAR PATTERNS
-    print("\n[3] Circular Network Detection...")
-    
-    cur.execute("""
-        SELECT buyer_member_id, seller_member_id, SUM(amount)::numeric
-        FROM public.trades
-        WHERE business_date = %s 
-          AND buyer_member_id <> seller_member_id
-        GROUP BY buyer_member_id, seller_member_id
-        HAVING SUM(amount) >= 500000
-    """, (business_date,))
-    
-    graph = defaultdict(dict)
-    for buyer, seller, amount in cur.fetchall():
-        graph[buyer][seller] = float(amount)
-    
     circular_patterns = []
-    checked = set()
-    
-    for a in list(graph.keys())[:30]:
-        for b in graph[a]:
-            if b not in graph:
-                continue
-            for c in graph[b]:
-                if c not in graph or c == a:
-                    continue
-                if a in graph[c]:
-                    cycle = tuple(sorted([a, b, c]))
-                    if cycle not in checked:
-                        checked.add(cycle)
-                        total_flow = graph[a][b] + graph[b][c] + graph[c][a]
-                        if total_flow >= 2000000:
-                            circular_patterns.append((cycle, total_flow))
-    
-    circ_count = 0
-    for (nodes, total_flow) in circular_patterns[:10]:
-        score = min(1.0, total_flow / 10000000)
-        for node in nodes:
-            anomalies_to_insert.append((
-                business_date,
-                "wash_trading_v2.1_circular",
-                "broker",
-                str(node),
-                score,
-                json.dumps({
-                    'pattern': f"{nodes[0]}→{nodes[1]}→{nodes[2]}→{nodes[0]}",
-                    'total_circular_flow': total_flow
-                })
-            ))
-            circ_count += 1
-    
-    print(f"   Found {len(circular_patterns)} circular patterns")
+    print("\n[3] Candidate Circular Flow Analysis...")
+    print("   Disabled for now: current graph heuristic is not strong enough for production use")
     
     # BULK INSERT
     print(f"\n[4] Inserting {len(anomalies_to_insert)} anomalies...")
@@ -313,17 +280,17 @@ def detect_enhanced_wash_trading(cur, business_date: str):
         )
     
     print(f"\n{'='*70}")
-    print(f"ENHANCED DETECTION SUMMARY:")
-    print(f"  Round-trip: {wash_count} ({high_conf} high, {ultra_high} ultra-high)")
-    print(f"  Self-trades: {self_count}")
-    print(f"  Circular: {len(circular_patterns)}")
+    print(f"CANDIDATE ANOMALY SUMMARY:")
+    print(f"  Round-trip candidates: {wash_count} ({high_conf} >=0.8, {ultra_high} >=0.9)")
+    print(f"  Self-trade candidates: {self_count}")
+    print(f"  Circular-flow candidates: {len(circular_patterns)}")
     print(f"  Total: {len(anomalies_to_insert)}")
     print(f"{'='*70}\n")
 
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python scripts/detect_wash_trading_v2.1.py YYYY-MM-DD")
+        print("Usage: python scripts/wash_trading_detector.py YYYY-MM-DD")
         sys.exit(1)
     
     business_date = sys.argv[1]
@@ -333,15 +300,14 @@ def main():
             cur.execute("""
                 DELETE FROM public.anomalies 
                 WHERE business_date = %s 
-                  AND anomaly_type LIKE 'wash_trading_v2.1%%'
+                  AND anomaly_type LIKE 'wash_candidate_%'
             """, (business_date,))
-            conn.commit()
-            print(f"Cleared old v2.1 detections for {business_date}")
+            print(f"Cleared old candidate anomaly rows for {business_date}")
             
             detect_enhanced_wash_trading(cur, business_date)
             
             conn.commit()
-            print("Enhanced detection complete!")
+            print("Candidate anomaly detection complete!")
 
 
 if __name__ == "__main__":

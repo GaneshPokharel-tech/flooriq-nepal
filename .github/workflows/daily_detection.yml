@@ -1,4 +1,4 @@
-name: Daily Wash Trading Detection
+name: Daily Wash Trading Candidate Flags
 
 on:
   schedule:
@@ -8,21 +8,31 @@ on:
 jobs:
   detect:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      - name: Install dependencies
-        run: pip install psycopg python-dotenv
-      - name: Run Detection
+          python-version: "3.12"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run wash-trading candidate flags
         env:
           SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-          SUPABASE_DB_NAME: postgres
-          SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER }}
           SUPABASE_DB_PORT: ${{ secrets.SUPABASE_DB_PORT }}
+          SUPABASE_DB_NAME: "postgres"
+          SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_DB_SSLMODE: "require"
+          TZ: "Asia/Kathmandu"
         run: |
           YESTERDAY=$(date -d "yesterday" +%Y-%m-%d)
           PYTHONPATH=. python scripts/wash_trading_detector.py $YESTERDAY
