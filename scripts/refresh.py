@@ -52,6 +52,9 @@ def main() -> int:
     run([sys.executable, "scripts/build_daily_features.py", d])
     run([sys.executable, "scripts/detect_anomalies.py", d])
 
+    # 5) Leader-follower honest detection (production fast mode)
+    run([sys.executable, "scripts/leader_follower_honest.py", d, "20", "60", "fast"])
+
     print("[DONE] refresh complete for", d)
     return 0
 
