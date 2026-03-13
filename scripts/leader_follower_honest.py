@@ -69,7 +69,7 @@ def load_symbol_trade_map(cur, calculation_date, start_business_date, has_contra
     return symbol_trade_map
 
 
-def analyze_leader_follower_conservative(symbol, trades, max_brokers_per_symbol):
+def analyze_leader_follower_conservative(symbol, trades, max_brokers_per_symbol, matcher_mode='fast'):
     """
     Conservative pattern detection
     High thresholds to minimize false positives
@@ -121,19 +121,35 @@ def analyze_leader_follower_conservative(symbol, trades, max_brokers_per_symbol)
     if len(active_brokers) < 2:
         return []
     
+    # Precompute broker active time spans for cheap pair prefiltering
+    broker_time_spans = {}
+    for b in active_brokers:
+        events = broker_events[b]
+        broker_time_spans[b] = (events[0]['time'], events[-1]['time'])
+
     patterns = []
     
     for i, broker_a in enumerate(active_brokers):
         for broker_b in active_brokers[i+1:]:
-            
+            a_start, a_end = broker_time_spans[broker_a]
+            b_start, b_end = broker_time_spans[broker_b]
+
+            # Skip pairs with no meaningful overlap inside the 30-minute follow window
+            if a_end < b_start:
+                if (b_start - a_end).total_seconds() > 30 * 60:
+                    continue
+            elif b_end < a_start:
+                if (a_start - b_end).total_seconds() > 30 * 60:
+                    continue
+
             trades_a = broker_events[broker_a]
             trades_b = broker_events[broker_b]
             
             # Check A → B
-            a_data = check_leading_pattern(trades_a, trades_b)
+            a_data = check_leading_pattern(trades_a, trades_b, matcher_mode=matcher_mode)
             
             # Check B → A
-            b_data = check_leading_pattern(trades_b, trades_a)
+            b_data = check_leading_pattern(trades_b, trades_a, matcher_mode=matcher_mode)
             
             if not a_data and not b_data:
                 continue
@@ -199,57 +215,57 @@ def compress_trade_bursts(trades, burst_seconds=60):
     return compressed
 
 
-def check_leading_pattern(leader_trades, follower_trades):
+def check_leading_pattern_legacy(leader_trades, follower_trades):
     """
-    Check if leader's trades predict follower's trades
-    Returns metrics dict or None
+    Original exhaustive matcher.
+    Slower, but useful as a reference implementation for validation.
     """
-    
+
     instances = 0
     lags = []
     direction_matches = 0
     used_follower_ids = set()
-    
+
     TIME_WINDOW = 30  # minutes
-    
+
     for ltrade in leader_trades:
         ltime = ltrade['time']
         lside = ltrade['side']
-        
+
         best_match = None
         best_lag = float('inf')
-        
+
         for ftrade in follower_trades:
             if ftrade['id'] in used_follower_ids:
                 continue
-            
+
             ftime = ftrade['time']
-            
+
             if ftime <= ltime:
                 continue
-            
+
             lag = (ftime - ltime).total_seconds() / 60
-            
+
             if lag <= TIME_WINDOW and lag < best_lag:
                 best_match = ftrade
                 best_lag = lag
-        
+
         if best_match:
             instances += 1
             lags.append(best_lag)
             used_follower_ids.add(best_match['id'])
-            
+
             if best_match['side'] == lside:
                 direction_matches += 1
-    
+
     if instances < 2:
         return None
-    
+
     avg_lag = mean(lags)
     lag_std = stdev(lags) if len(lags) >= 2 else 0
     direction_acc = direction_matches / instances
     follow_rate = instances / len(leader_trades)
-    
+
     return {
         'instances': instances,
         'avg_lag': avg_lag,
@@ -259,6 +275,88 @@ def check_leading_pattern(leader_trades, follower_trades):
         'leader_total': len(leader_trades),
         'lags': lags
     }
+
+
+def check_leading_pattern_fast(leader_trades, follower_trades):
+    """
+    Faster but semantics-preserving matcher:
+    - keeps legacy greedy nearest-future behavior
+    - avoids scanning followers before current leader time
+    - limits search to the 30-minute window
+    """
+
+    if not leader_trades or not follower_trades:
+        return None
+
+    instances = 0
+    lags = []
+    direction_matches = 0
+    used_follower_ids = set()
+
+    TIME_WINDOW = 30  # minutes
+    n_followers = len(follower_trades)
+    time_start = 0
+
+    for ltrade in leader_trades:
+        ltime = ltrade['time']
+        lside = ltrade['side']
+
+        while time_start < n_followers and follower_trades[time_start]['time'] <= ltime:
+            time_start += 1
+
+        best_match = None
+        best_lag = float('inf')
+
+        k = time_start
+        while k < n_followers:
+            ftrade = follower_trades[k]
+
+            if ftrade['id'] in used_follower_ids:
+                k += 1
+                continue
+
+            lag = (ftrade['time'] - ltime).total_seconds() / 60
+
+            if lag > TIME_WINDOW:
+                break
+
+            if lag < best_lag:
+                best_lag = lag
+                best_match = ftrade
+
+            k += 1
+
+        if best_match:
+            instances += 1
+            lags.append(best_lag)
+            used_follower_ids.add(best_match['id'])
+
+            if best_match['side'] == lside:
+                direction_matches += 1
+
+    if instances < 2:
+        return None
+
+    avg_lag = mean(lags)
+    lag_std = stdev(lags) if len(lags) >= 2 else 0
+    direction_acc = direction_matches / instances
+    follow_rate = instances / len(leader_trades)
+
+    return {
+        'instances': instances,
+        'avg_lag': avg_lag,
+        'lag_std': lag_std,
+        'direction_acc': direction_acc,
+        'follow_rate': follow_rate,
+        'leader_total': len(leader_trades),
+        'lags': lags
+    }
+
+
+def check_leading_pattern(leader_trades, follower_trades, matcher_mode='fast'):
+    if matcher_mode == 'legacy':
+        return check_leading_pattern_legacy(leader_trades, follower_trades)
+    return check_leading_pattern_fast(leader_trades, follower_trades)
 
 
 def meets_quality_standards(data):
@@ -311,14 +409,73 @@ def calculate_lag_consistency(lags):
     return round(consistency, 4)
 
 
+def compare_matcher_modes(symbol_trade_map, symbols, max_brokers_per_symbol):
+    """
+    Run both legacy and fast matchers in-memory and print exact diff summary.
+    Does not write to DB.
+    """
+    legacy_keys = set()
+    fast_keys = set()
+
+    for idx, symbol in enumerate(symbols, 1):
+        if idx % 30 == 0:
+            print(f"compare {idx}/{len(symbols)}")
+
+        legacy_patterns = analyze_leader_follower_conservative(
+            symbol,
+            symbol_trade_map.get(symbol, []),
+            max_brokers_per_symbol,
+            matcher_mode='legacy'
+        )
+        fast_patterns = analyze_leader_follower_conservative(
+            symbol,
+            symbol_trade_map.get(symbol, []),
+            max_brokers_per_symbol,
+            matcher_mode='fast'
+        )
+
+        for p in legacy_patterns:
+            legacy_keys.add((p['symbol'], p['leader'], p['follower']))
+        for p in fast_patterns:
+            fast_keys.add((p['symbol'], p['leader'], p['follower']))
+
+    only_legacy = sorted(legacy_keys - fast_keys)
+    only_fast = sorted(fast_keys - legacy_keys)
+
+    print("\n" + "="*70)
+    print("MATCHER COMPARISON")
+    print("="*70)
+    print(f"Legacy patterns: {len(legacy_keys):,}")
+    print(f"Fast patterns:   {len(fast_keys):,}")
+    print(f"Only in legacy:  {len(only_legacy):,}")
+    print(f"Only in fast:    {len(only_fast):,}")
+
+    if only_legacy:
+        print("\nFirst 20 patterns only in legacy:")
+        for symbol, leader, follower in only_legacy[:20]:
+            print(f"  {symbol} | {leader} -> {follower}")
+
+    if only_fast:
+        print("\nFirst 20 patterns only in fast:")
+        for symbol, leader, follower in only_fast[:20]:
+            print(f"  {symbol} | {leader} -> {follower}")
+
+    print("="*70 + "\n")
+
+
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python scripts/leader_follower_honest.py YYYY-MM-DD [lookback_sessions] [max_brokers_per_symbol]")
+        print("Usage: python scripts/leader_follower_honest.py YYYY-MM-DD [lookback_sessions] [max_brokers_per_symbol] [matcher_mode] [symbol_limit]")
         sys.exit(1)
     
     calculation_date = sys.argv[1]
     lookback_sessions = int(sys.argv[2]) if len(sys.argv) >= 3 else 20
     max_brokers_per_symbol = int(sys.argv[3]) if len(sys.argv) >= 4 else 60
+    matcher_mode = sys.argv[4].lower() if len(sys.argv) >= 5 else 'fast'
+    symbol_limit = int(sys.argv[5]) if len(sys.argv) >= 6 else None
+    if matcher_mode not in ('fast', 'legacy', 'compare'):
+        print("matcher_mode must be one of: fast, legacy, compare")
+        sys.exit(1)
     start_time = datetime.now()
     
     with get_conn() as conn:
@@ -337,6 +494,15 @@ def main():
             print("NOT formal statistical validation (insufficient data)")
             print(f"Lookback window: last {lookback_sessions} trading sessions up to {calculation_date}")
             print(f"Broker cap per symbol: top {max_brokers_per_symbol} by compressed activity")
+            print(f"Matcher mode: {matcher_mode}")
+            if matcher_mode == 'fast':
+                print("Run profile: production mode (fast exact matcher, writes results to DB)")
+            elif matcher_mode == 'legacy':
+                print("Run profile: reference mode (slower legacy matcher, writes results to DB)")
+            elif matcher_mode == 'compare':
+                print("Run profile: validation mode (fast vs legacy comparison, no DB writes)")
+            if symbol_limit is not None:
+                print(f"Symbol limit: {symbol_limit}")
             print("\nThresholds:")
             print("  - ≥5 leader instances")
             print("  - ≥40% follow rate")
@@ -373,60 +539,56 @@ def main():
         symbol for symbol, rows in symbol_trade_map.items()
         if len(rows) >= 20
     ])
+    if symbol_limit is not None:
+        symbols = symbols[:symbol_limit]
     print(f"Analyzing {len(symbols)} symbols...")
     print(f"Started: {start_time.strftime('%H:%M:%S')}\n")
 
-    total_inserted = 0
-    batch = []
+    if matcher_mode == 'compare':
+        compare_matcher_modes(symbol_trade_map, symbols, max_brokers_per_symbol)
+        runtime = (datetime.now() - start_time).total_seconds() / 60
+        print(f"COMPARE COMPLETE: {runtime:.1f} minutes")
+        return
 
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute("DELETE FROM leader_follower_patterns WHERE calculation_date = %s", (calculation_date,))
-            conn.commit()
+    total_inserted = 0
+    rows_to_insert = []
 
     for idx, symbol in enumerate(symbols, 1):
         if idx % 30 == 0:
             elapsed = (datetime.now() - start_time).total_seconds() / 60
-            print(f"{idx}/{len(symbols)} | {total_inserted} patterns | {elapsed:.1f}min")
+            print(f"{idx}/{len(symbols)} | {total_inserted} patterns buffered | {elapsed:.1f}min")
 
-        patterns = analyze_leader_follower_conservative(symbol, symbol_trade_map.get(symbol, []), max_brokers_per_symbol)
+        patterns = analyze_leader_follower_conservative(
+            symbol,
+            symbol_trade_map.get(symbol, []),
+            max_brokers_per_symbol,
+            matcher_mode=matcher_mode
+        )
 
         for p in patterns:
-            batch.append((
+            rows_to_insert.append((
                 calculation_date, p['leader'], p['follower'], p['symbol'],
                 p['avg_lag'], p['consistency_score'], p['instances'],
                 p['total_leader_trades'], p['follow_rate'],
                 p['threshold_passed'], None
             ))
+            total_inserted += 1
 
-        if len(batch) >= 100:
-            with get_conn() as conn:
-                with conn.cursor() as cur:
-                    cur.executemany("""
-                        INSERT INTO leader_follower_patterns
-                        (calculation_date, leader_broker_id, follower_broker_id, symbol,
-                         avg_time_lag_minutes, correlation_score, leader_first_count,
-                         total_instances, follow_rate, leader_avg_profit, follower_avg_profit,
-                         statistical_significance, p_value)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, 0, %s, %s)
-                    """, batch)
-                    conn.commit()
-            total_inserted += len(batch)
-            batch = []
+    with get_conn() as write_conn:
+        with write_conn.cursor() as write_cur:
+            write_cur.execute("DELETE FROM leader_follower_patterns WHERE calculation_date = %s", (calculation_date,))
 
-    if batch:
-        with get_conn() as conn:
-            with conn.cursor() as cur:
-                cur.executemany("""
+            if rows_to_insert:
+                write_cur.executemany("""
                     INSERT INTO leader_follower_patterns
                     (calculation_date, leader_broker_id, follower_broker_id, symbol,
                      avg_time_lag_minutes, correlation_score, leader_first_count,
                      total_instances, follow_rate, leader_avg_profit, follower_avg_profit,
                      statistical_significance, p_value)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, 0, %s, %s)
-                """, batch)
-                conn.commit()
-        total_inserted += len(batch)
+                """, rows_to_insert)
+
+            write_conn.commit()
 
     runtime = (datetime.now() - start_time).total_seconds() / 60
 
