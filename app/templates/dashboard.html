@@ -166,6 +166,13 @@
   ⚠ Analytics only — no trading advice. Descriptive market insights and anomaly flags based on public NEPSE floorsheet data.
 </div>
 
+{% if stale_data_message %}
+<div class="banner" style="margin-top:10px;background:#3b82f610;border-color:#3b82f630;color:var(--text);">
+  {{ stale_data_message }}
+  {% if prev_business_date %}<span style="color:var(--muted);"> Previous available date: {{ prev_business_date }}</span>{% endif %}
+</div>
+{% endif %}
+
 <!-- ═══ MAIN ═══ -->
 <main>
   <div class="grid">

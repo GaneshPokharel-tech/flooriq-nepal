@@ -19,6 +19,7 @@ def _next_param(request: Request) -> str:
 
 def _get_dashboard_context(conn: psycopg.Connection, request: Request):
     latest_bd = None
+    prev_bd = None
     broker_ids: list[int] = []
 
     with conn.cursor() as cur:
@@ -27,6 +28,13 @@ def _get_dashboard_context(conn: psycopg.Connection, request: Request):
         latest_bd = row[0] if row is not None else None
 
         if latest_bd is not None:
+            cur.execute(
+                "SELECT MAX(business_date) FROM public.broker_daily_features WHERE business_date < %s",
+                (latest_bd,),
+            )
+            row2 = cur.fetchone()
+            prev_bd = row2[0] if row2 is not None else None
+
             cur.execute(
                 """
                 SELECT broker_id
@@ -45,8 +53,14 @@ def _get_dashboard_context(conn: psycopg.Connection, request: Request):
     session_broker_id = get_session_broker_id(request)
     broker_locked = session_broker_id is not None
 
+    stale_data_message = None
+    if latest_bd is not None:
+        stale_data_message = f"Showing latest available market data for {latest_bd}. Source may not have published a newer business date yet."
+
     return {
         "latest_business_date": (None if latest_bd is None else str(latest_bd)),
+        "prev_business_date": (None if prev_bd is None else str(prev_bd)),
+        "stale_data_message": stale_data_message,
         "broker_ids": broker_ids,
         "session_broker_id": session_broker_id,
         "broker_locked": broker_locked,
