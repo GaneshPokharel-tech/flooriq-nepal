@@ -26,6 +26,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Verify ML dependency
+        run: |
+          python - <<'PY2'
+          import sklearn
+          print("scikit-learn", sklearn.__version__)
+          PY2
+
       - name: Fetch floorsheet to CSV (retry + validate)
         id: fetch
         run: |
