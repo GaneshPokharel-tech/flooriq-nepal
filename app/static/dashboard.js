@@ -155,7 +155,7 @@
           const details = (a.details == null) ? "" : String(a.details);
           anBody.insertAdjacentHTML("beforeend",
             `<tr>
-              <td>${a.anomaly_type || ""}</td>
+              <td>${a.anomaly_label || a.anomaly_type || ""}</td>
               <td>${fmtNum(a.score)}</td>
               <td class="muted">${details}</td>
             </tr>`
@@ -416,7 +416,7 @@
           body.insertAdjacentHTML("beforeend",
             `<tr>
               <td class="mono">${a.entity_type}:${a.entity_id}</td>
-              <td>${a.anomaly_type}</td>
+              <td>${a.anomaly_label || a.anomaly_type}</td>
               <td>${fmtNum(a.score)}</td>
             </tr>`
           );
