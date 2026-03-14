@@ -300,9 +300,16 @@ def detect_enhanced_wash_trading(cur, business_date: str):
             str(broker_id),
             score,
             json.dumps({
+                'version': 'candidate_v1',
+                'analysis_mode': ('history_enabled' if history_enabled else 'base_only'),
                 'symbol': symbol,
-                'self_trade_count': int(count),
-                'total_self_amount': float(amount)
+                'risk_band': ('elevated' if score >= 0.9 else ('moderate' if score >= 0.8 else 'watch')),
+                'composite_score': score,
+                'heuristic_components': {
+                    'self_trade_count': int(count),
+                    'total_self_amount': float(amount)
+                },
+                'explanation': 'Candidate self-trade pattern based on same-broker buy and sell activity on the same day. Not proof of wash trading.'
             })
         ))
         self_count += 1
