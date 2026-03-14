@@ -2,6 +2,12 @@ name: daily-refresh
 
 on:
   workflow_dispatch:
+    inputs:
+      skip_fetch:
+        description: "Skip NEPSE fetch and use existing data/raw/floorsheet_latest.csv"
+        required: false
+        default: false
+        type: boolean
   schedule:
     # Nepal Time is UTC+5:45.
     # Run at 10:45 UTC ~= 16:30 NPT (4:30 PM Nepal time)
@@ -34,6 +40,7 @@ jobs:
           PY2
 
       - name: Fetch floorsheet to CSV (retry + validate)
+        if: ${{ !inputs.skip_fetch }}
         id: fetch
         run: |
           mkdir -p data/raw
@@ -61,7 +68,7 @@ jobs:
           fi
 
       - name: Refresh pipeline (ingest + features + anomalies)
-        if: steps.fetch.outputs.skip != 'true'
+        if: ${{ inputs.skip_fetch || steps.fetch.outputs.skip != 'true' }}
         env:
           SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
           SUPABASE_DB_PORT: ${{ secrets.SUPABASE_DB_PORT }}
@@ -76,7 +83,7 @@ jobs:
           PYTHONPATH=. python scripts/refresh.py --skip-fetch
 
       - name: WhatsApp daily alerts (dryrun)
-        if: steps.fetch.outputs.skip != 'true'
+        if: ${{ inputs.skip_fetch || steps.fetch.outputs.skip != 'true' }}
         env:
           SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
           SUPABASE_DB_PORT: ${{ secrets.SUPABASE_DB_PORT }}
