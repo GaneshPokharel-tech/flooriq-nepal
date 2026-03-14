@@ -246,19 +246,24 @@ def detect_enhanced_wash_trading(cur, business_date: str):
                             str(broker_a),
                             score,
                             json.dumps({
+                                'version': 'candidate_v1',
+                                'analysis_mode': ('history_enabled' if history_enabled else 'base_only'),
                                 'symbol': symbol,
                                 'counterparty': int(broker_b),
-                                'time_delta_minutes': round(time_delta, 2),
-                                'price_deviation_pct': round(price_dev, 3),
-                                'balance_ratio': round(balance, 4),
-                                'profit_pct': round(profit_pct, 3),
-                                'is_breakeven': is_breakeven,
-                                'round_quantities': both_round,
-                                'trades_today': total_trades_today,
-                                'time_of_day_risk': round(tod_multiplier, 2),
                                 'historical_pair_days': historical_pair_days,
+                                'risk_band': risk_band,
                                 'composite_score': score,
-                                'risk_band': risk_band
+                                'heuristic_components': {
+                                    'time_delta_minutes': round(time_delta, 2),
+                                    'price_deviation_pct': round(price_dev, 3),
+                                    'balance_ratio': round(balance, 4),
+                                    'profit_pct': round(profit_pct, 3),
+                                    'is_breakeven': is_breakeven,
+                                    'round_quantities': both_round,
+                                    'trades_today': total_trades_today,
+                                    'time_of_day_risk': round(tod_multiplier, 2)
+                                },
+                                'explanation': 'Candidate round-trip pattern based on same-day reciprocal trading, timing, price proximity, balance, and heuristic context. Not proof of wash trading.'
                             })
                         ))
                         
