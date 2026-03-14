@@ -61,6 +61,16 @@ async def _cache_set(redis, key: str, value, ttl: int = CACHE_TTL_SECONDS):
         return
 
 
+
+def _friendly_anomaly_label(anomaly_type: str) -> str:
+    mapping = {
+        "wash_candidate_roundtrip": "Candidate round-trip pattern",
+        "wash_candidate_self_trade": "Candidate self-trade pattern",
+        "wash_candidate_circular_flow": "Candidate circular flow pattern",
+    }
+    return mapping.get(anomaly_type, anomaly_type.replace("_", " ").strip())
+    
+
 DISCLAIMER = {
     "sebon_safe": True,
     "message": (
@@ -300,6 +310,7 @@ async def broker_insights(
             {
                 "business_date": bd,
                 "anomaly_type": atype,
+                "anomaly_label": _friendly_anomaly_label(atype),
                 "score": float(score),
                 "details": details,
                 "created_at": created_at,

@@ -39,6 +39,14 @@ def _pdf_safe(text):
         return "-"
     return str(text).replace("—", "-").replace("₨", "Rs.").replace("✓", "OK")
 
+def _friendly_anomaly_label(anomaly_type: str) -> str:
+    mapping = {
+        "wash_candidate_roundtrip": "Candidate round-trip pattern",
+        "wash_candidate_self_trade": "Candidate self-trade pattern",
+        "wash_candidate_circular_flow": "Candidate circular flow pattern",
+    }
+    return mapping.get(anomaly_type, anomaly_type.replace("_", " ").strip())
+
 
 @router.get("/reports/broker/{broker_id}.pdf")
 async def broker_report_pdf(
@@ -141,7 +149,10 @@ async def broker_report_pdf(
             """,
             (business_date, str(broker_id)),
         )
-        arows = cur.fetchall()
+        arows = [
+            (_friendly_anomaly_label(anomaly_type), score, details)
+            for anomaly_type, score, details in cur.fetchall()
+        ]
 
         # Sector flows (today vs previous trading day)
         cur.execute("SELECT MAX(business_date) FROM public.trades WHERE business_date < %s", (business_date,))
