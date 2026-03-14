@@ -427,6 +427,7 @@ async def anomalies_today(
             {
                 "business_date": r[0],
                 "anomaly_type": r[1],
+                "anomaly_label": _friendly_anomaly_label(r[1]),
                 "entity_type": r[2],
                 "entity_id": r[3],
                 "score": float(r[4]),
