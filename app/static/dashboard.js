@@ -33,6 +33,55 @@
     return String(x);
   }
 
+  function anomalyDetailsSummary(a) {
+    const d = a?.details;
+    if (!d || typeof d !== "object") return String(d ?? "");
+
+    const label = a?.anomaly_type || "";
+
+    if (label === "wash_candidate_roundtrip") {
+      const sym = d.symbol || "—";
+      const cp = d.counterparty ?? "—";
+      const risk = d.risk_band || "—";
+      const hp = d.historical_pair_days ?? 0;
+      const hc = d.heuristic_components || {};
+      const lag = hc.time_delta_minutes ?? "—";
+      const px = hc.price_deviation_pct ?? "—";
+      return `symbol: ${sym} | counterparty: ${cp} | risk: ${risk} | lag(min): ${lag} | px_dev%: ${px} | historical_pair_days: ${hp}`;
+    }
+
+    if (label === "wash_candidate_self_trade") {
+      const sym = d.symbol || "—";
+      const risk = d.risk_band || "—";
+      const hc = d.heuristic_components || {};
+      const cnt = hc.self_trade_count ?? "—";
+      const amt = hc.total_self_amount ?? "—";
+      return `symbol: ${sym} | risk: ${risk} | self_trades: ${cnt} | total_amount: ${fmtNum(amt)}`;
+    }
+
+    if (label === "broker_net_amount_spike") {
+      const z = d.z ?? "—";
+      const net = d.net_amount ?? "—";
+      return `z_score: ${z} | net_amount: ${fmtNum(net)}`;
+    }
+
+    if (label === "wash_counterparty_dominance") {
+      const cp = d.counterparty ?? "—";
+      const share = d.share == null ? "—" : `${fmtNum(Number(d.share) * 100)}%`;
+      const turnover = d.broker_turnover ?? "—";
+      const linked = d.with_counterparty_amount ?? "—";
+      return `counterparty: ${cp} | share: ${share} | broker_turnover: ${fmtNum(turnover)} | linked_amount: ${fmtNum(linked)}`;
+    }
+
+    if (label === "isolation_forest_anomaly") {
+      const score = d.if_score ?? "—";
+      const threshold = d.threshold ?? "—";
+      return `if_score: ${score} | threshold: ${threshold} | model: IsolationForest`;
+    }
+
+    return JSON.stringify(d);
+  }
+
   function pillRisk(risk) {
     const r = (risk || "").toUpperCase();
     const cls = r === "HIGH" ? "high" : (r === "MEDIUM" ? "medium" : (r === "LOW" ? "low" : ""));
@@ -152,7 +201,7 @@
         anBody.innerHTML = `<tr><td colspan="3" class="muted">No anomalies</td></tr>`;
       } else {
         anomalies.slice(0, 20).forEach(a => {
-          const details = (a.details == null) ? "" : String(a.details);
+          const details = anomalyDetailsSummary(a);
           anBody.insertAdjacentHTML("beforeend",
             `<tr>
               <td>${a.anomaly_label || a.anomaly_type || ""}</td>

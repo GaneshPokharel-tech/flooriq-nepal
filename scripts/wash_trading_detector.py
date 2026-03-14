@@ -17,11 +17,11 @@ def get_time_of_day_risk(trade_time):
     
     # Market open window (11:00-11:30 NPT)
     if time(11, 0) <= t <= time(11, 30):
-        return 1.2  # 20% increase
+        return 1.1  # modest uplift only
     
     # Market close window (14:45-15:00 NPT)
     if time(14, 45) <= t <= time(15, 0):
-        return 1.3  # 30% increase
+        return 1.15  # modest uplift only
     
     return 1.0  # Normal
 
@@ -74,13 +74,21 @@ def calculate_enhanced_wash_score(
         frequency_score * 0.10
     )
     
-    # Add bonuses
-    composite = base_composite + round_qty_bonus + breakeven_bonus
+    # Add bonuses, but cap before downstream multipliers so diagnostics and
+    # scoring scale stay interpretable.
+    pre_multiplier_score = min(1.0, base_composite + round_qty_bonus + breakeven_bonus)
     
     # Apply time-of-day multiplier
-    composite = min(1.0, composite * time_of_day_multiplier)
+    final_score_clamped = min(1.0, pre_multiplier_score * time_of_day_multiplier)
     
-    return round(composite, 4)
+    return {
+        "score": round(final_score_clamped, 4),
+        "base_composite": round(base_composite, 4),
+        "round_qty_bonus": round(round_qty_bonus, 4),
+        "breakeven_bonus": round(breakeven_bonus, 4),
+        "pre_multiplier_score": round(pre_multiplier_score, 4),
+        "final_score_clamped": round(final_score_clamped, 4),
+    }
 
 
 def detect_enhanced_wash_trading(cur, business_date: str):
@@ -159,6 +167,7 @@ def detect_enhanced_wash_trading(cur, business_date: str):
     print(f"Loaded {len(trades)} high-value trades (>= 100K)\n")
     
     anomalies_to_insert = []
+    roundtrip_best = {}
     
     print("[1] Candidate Round-Trip Pattern Analysis...")
     
@@ -166,9 +175,7 @@ def detect_enhanced_wash_trading(cur, business_date: str):
     for ttime, symbol, buyer, seller, qty, price, amount in trades:
         by_symbol[symbol].append((ttime, buyer, seller, int(qty), float(price), float(amount)))
     
-    wash_count = 0
-    high_conf = 0
-    ultra_high = 0  # Score >= 0.9
+    raw_roundtrip_matches = 0
     
     for idx, (symbol, symbol_trades) in enumerate(by_symbol.items(), 1):
         if idx % 50 == 0:
@@ -189,7 +196,7 @@ def detect_enhanced_wash_trading(cur, business_date: str):
             
             # Intraday repetition factor
             total_trades_today = len(a_to_b) + len(b_to_a)
-            repetition_multiplier = min(1.5, 1.0 + (total_trades_today / 20))
+            repetition_multiplier = min(1.05, 1.0 + (total_trades_today / 20))
             
             for a_time, a_qty, a_price, a_amt in a_to_b[-5:]:
                 for b_time, b_qty, b_price, b_amt in b_to_a[-5:]:
@@ -220,7 +227,7 @@ def detect_enhanced_wash_trading(cur, business_date: str):
                     is_breakeven = abs(profit_pct) <= 0.2
                     
                     # Enhanced scoring
-                    score = calculate_enhanced_wash_score(
+                    score_meta = calculate_enhanced_wash_score(
                         time_delta,
                         price_dev,
                         balance,
@@ -229,6 +236,7 @@ def detect_enhanced_wash_trading(cur, business_date: str):
                         tod_multiplier,
                         is_breakeven
                     )
+                    score = score_meta["score"]
 
                     pair_key = (symbol.upper(), min(broker_a, broker_b), max(broker_a, broker_b))
                     historical_pair_days = pair_recurrence.get(pair_key, 0)
@@ -236,44 +244,58 @@ def detect_enhanced_wash_trading(cur, business_date: str):
                     # Apply repetition multiplier
                     score = min(1.0, score * repetition_multiplier)
                     
-                    if score >= 0.6 and total >= 500000:
+                    if score >= 0.6 and total >= 500000 and balance >= 0.30:
                         risk_band = 'elevated' if score >= 0.9 else ('moderate' if score >= 0.8 else 'watch')
                         
-                        anomalies_to_insert.append((
-                            business_date,
-                            "wash_candidate_roundtrip",
-                            "broker",
-                            str(broker_a),
-                            score,
-                            json.dumps({
-                                'version': 'candidate_v1',
-                                'analysis_mode': ('history_enabled' if history_enabled else 'base_only'),
-                                'symbol': symbol,
-                                'counterparty': int(broker_b),
-                                'historical_pair_days': historical_pair_days,
-                                'risk_band': risk_band,
-                                'composite_score': score,
-                                'heuristic_components': {
-                                    'time_delta_minutes': round(time_delta, 2),
-                                    'price_deviation_pct': round(price_dev, 3),
-                                    'balance_ratio': round(balance, 4),
-                                    'profit_pct': round(profit_pct, 3),
-                                    'is_breakeven': is_breakeven,
-                                    'round_quantities': both_round,
-                                    'trades_today': total_trades_today,
-                                    'time_of_day_risk': round(tod_multiplier, 2)
-                                },
-                                'explanation': 'Candidate round-trip pattern based on same-day reciprocal trading, timing, price proximity, balance, and heuristic context. Not proof of wash trading.'
-                            })
-                        ))
-                        
-                        wash_count += 1
-                        if score >= 0.8:
-                            high_conf += 1
-                        if score >= 0.9:
-                            ultra_high += 1
+                        detail_payload = {
+                            'version': 'candidate_v1',
+                            'analysis_mode': ('history_enabled' if history_enabled else 'base_only'),
+                            'symbol': symbol,
+                            'counterparty': int(broker_b),
+                            'historical_pair_days': historical_pair_days,
+                            'risk_band': risk_band,
+                            'composite_score': score,
+                            'heuristic_components': {
+                                'time_delta_minutes': round(time_delta, 2),
+                                'price_deviation_pct': round(price_dev, 3),
+                                'balance_ratio': round(balance, 4),
+                                'profit_pct': round(profit_pct, 3),
+                                'is_breakeven': is_breakeven,
+                                'round_quantities': both_round,
+                                'trades_today': total_trades_today,
+                                'time_of_day_risk': round(tod_multiplier, 2),
+                                'base_composite': score_meta['base_composite'],
+                                'round_qty_bonus': score_meta['round_qty_bonus'],
+                                'breakeven_bonus': score_meta['breakeven_bonus'],
+                                'pre_multiplier_score': score_meta['pre_multiplier_score'],
+                                'repetition_multiplier': round(repetition_multiplier, 4),
+                                'final_score_clamped': round(score, 4)
+                            },
+                            'explanation': 'Candidate round-trip pattern based on same-day reciprocal trading, timing, price proximity, balance, and heuristic context. Not proof of wash trading.'
+                        }
+                        key = (str(broker_a), int(broker_b), (symbol or "").strip().upper())
+                        prev = roundtrip_best.get(key)
+                        if prev is None or score > prev[4]:
+                            roundtrip_best[key] = (
+                                business_date,
+                                "wash_candidate_roundtrip",
+                                "broker",
+                                str(broker_a),
+                                score,
+                                json.dumps(detail_payload),
+                            )
+
+                        raw_roundtrip_matches += 1
     
-    print(f"   Found {wash_count} patterns")
+    roundtrip_rows = list(roundtrip_best.values())
+    wash_count = len(roundtrip_rows)
+    high_conf = sum(1 for row in roundtrip_rows if row[4] >= 0.8)
+    ultra_high = sum(1 for row in roundtrip_rows if row[4] >= 0.9)
+
+    anomalies_to_insert.extend(roundtrip_rows)
+
+    print(f"   Raw matches: {raw_roundtrip_matches}")
+    print(f"   Unique broker-counterparty-symbol rows: {wash_count}")
     print(f"   High-confidence (≥0.8): {high_conf}")
     print(f"   Ultra-high (≥0.9): {ultra_high}")
     
@@ -290,8 +312,13 @@ def detect_enhanced_wash_trading(cur, business_date: str):
     """, (business_date,))
     
     self_count = 0
+    raw_self_trade_matches = 0
     for broker_id, symbol, count, amount in cur.fetchall():
         score = min(1.0, (count / 10) * 0.5 + (float(amount) / 5000000) * 0.5)
+        raw_self_trade_matches += 1
+
+        if score < 0.6:
+            continue
         
         anomalies_to_insert.append((
             business_date,
@@ -314,7 +341,8 @@ def detect_enhanced_wash_trading(cur, business_date: str):
         ))
         self_count += 1
     
-    print(f"   Found {self_count} self-trade patterns")
+    print(f"   Raw self-trade matches: {raw_self_trade_matches}")
+    print(f"   Inserted self-trade candidates (score >= 0.6): {self_count}")
     
     # 3. CIRCULAR PATTERNS
     circular_patterns = []

@@ -513,12 +513,15 @@
 
   function anomalyLabel(type) {
     const map = {
-      wash_pair_roundtrip:        {label:"Wash Pair",        color:"var(--red)"},
-      wash_counterparty_dominance:{label:"Counterparty Dom.",color:"#a855f7"},
-      broker_net_amount_spike:    {label:"Net Spike",        color:"var(--amber)"},
-      symbol_turnover_spike:      {label:"Turnover Spike",   color:"var(--amber)"},
-      self_trade_heavy:           {label:"Self Trade",       color:"var(--blue)"},
-      isolation_forest_anomaly:   {label:"🤖 IF Anomaly",   color:"var(--green)"},
+      wash_candidate_roundtrip:     {label:"Candidate round-trip pattern",      color:"var(--red)"},
+      wash_candidate_self_trade:    {label:"Candidate self-trade pattern",      color:"var(--blue)"},
+      wash_candidate_circular_flow: {label:"Candidate circular flow pattern",   color:"#a855f7"},
+      wash_trading_v2.1_circular:   {label:"Legacy circular-flow heuristic flag", color:"#a855f7"},
+      wash_counterparty_dominance:  {label:"Counterparty concentration flag",   color:"#a855f7"},
+      broker_net_amount_spike:      {label:"Net amount spike flag",             color:"var(--amber)"},
+      symbol_turnover_spike:        {label:"Turnover spike flag",               color:"var(--amber)"},
+      self_trade_heavy:             {label:"Legacy self-trade heuristic flag",  color:"var(--blue)"},
+      isolation_forest_anomaly:     {label:"ML anomaly flag",                   color:"var(--green)"},
     };
     const m = map[type] || {label: type, color:"var(--muted)"};
     return `<span style="font-size:11px;font-weight:600;color:${m.color};

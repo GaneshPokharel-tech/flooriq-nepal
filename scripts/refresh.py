@@ -1,4 +1,5 @@
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -10,7 +11,11 @@ DEFAULT_CSV = Path("data/raw/floorsheet_latest.csv")
 
 def run(cmd: list[str]) -> None:
     print("[RUN]", " ".join(cmd))
-    subprocess.check_call(cmd)
+    env = os.environ.copy()
+    repo_root = str(Path(__file__).resolve().parent.parent)
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = repo_root if not existing else repo_root + os.pathsep + existing
+    subprocess.check_call(cmd, env=env)
 
 
 def detect_business_date(csv_path: Path) -> str:
@@ -52,7 +57,10 @@ def main() -> int:
     run([sys.executable, "scripts/build_daily_features.py", d])
     run([sys.executable, "scripts/detect_anomalies.py", d])
 
-    # 5) Leader-follower honest detection (production fast mode)
+    # 5) Wash-trading candidate detector (safer candidate framing)
+    run([sys.executable, "scripts/wash_trading_detector.py", d])
+
+    # 6) Leader-follower honest detection (production fast mode)
     run([sys.executable, "scripts/leader_follower_honest.py", d, "20", "60", "fast"])
 
     print("[DONE] refresh complete for", d)

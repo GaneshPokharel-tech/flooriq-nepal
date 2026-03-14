@@ -129,82 +129,12 @@ def main():
                     sym_added += 1
             print(f"[2] symbol_turnover_spike: {sym_added} flagged")
 
-            # 3) Self-trade heavy
-            cur.execute(
-                """
-                WITH sym_total AS (
-                  SELECT stock_symbol, SUM(amount)::numeric AS total_amount
-                  FROM public.trades WHERE business_date=%s GROUP BY stock_symbol
-                ),
-                self_trades AS (
-                  SELECT stock_symbol, SUM(amount)::numeric AS self_amount, COUNT(*)::int AS self_trades
-                  FROM public.trades WHERE business_date=%s AND buyer_member_id=seller_member_id
-                  GROUP BY stock_symbol
-                )
-                SELECT st.stock_symbol, st.self_amount, st.self_trades, t.total_amount,
-                  CASE WHEN t.total_amount=0 THEN 0 ELSE (st.self_amount/t.total_amount) END AS ratio
-                FROM self_trades st JOIN sym_total t USING (stock_symbol)
-                ORDER BY ratio DESC, st.self_amount DESC
-                """,
-                (d, d),
-            )
-            self_added = 0
-            for sym, self_amt, self_trades, total_amt, ratio in cur.fetchall()[:50]:
-                r = float(ratio)
-                if r >= 0.25 and float(self_amt) >= 1000000:
-                    insert_anomaly(cur, d, "self_trade_heavy", "symbol", sym, r,
-                                   {"self_amount": float(self_amt), "total_amount": float(total_amt),
-                                    "ratio": r, "self_trades": int(self_trades)})
-                    self_added += 1
-            print(f"[3] self_trade_heavy: {self_added} flagged")
+            # 3) Legacy wash/self-trade heuristics
+            # Disabled here to avoid duplicate or misleading legacy wash labels.
+            # Safer candidate wash detection now runs in scripts/wash_trading_detector.py.
+            print("[3] legacy wash/self-trade heuristics: skipped (handled by wash_trading_detector.py)")
 
-            # 4) Wash-trading round-trip
-            cur.execute(
-                """
-                WITH pair_sym AS (
-                  SELECT stock_symbol, buyer_member_id AS a, seller_member_id AS b,
-                    SUM(amount)::numeric AS amt_ab, COUNT(*)::int AS trades_ab
-                  FROM public.trades
-                  WHERE business_date=%s AND buyer_member_id<>seller_member_id
-                  GROUP BY stock_symbol, buyer_member_id, seller_member_id
-                ),
-                paired AS (
-                  SELECT p.stock_symbol, p.a, p.b, p.amt_ab, p.trades_ab,
-                    COALESCE(q.amt_ab,0)::numeric AS amt_ba, COALESCE(q.trades_ab,0)::int AS trades_ba
-                  FROM pair_sym p
-                  LEFT JOIN pair_sym q ON q.stock_symbol=p.stock_symbol AND q.a=p.b AND q.b=p.a
-                  WHERE p.a < p.b
-                ),
-                broker_turnover AS (
-                  SELECT broker_id, SUM(total_buy_amount+total_sell_amount)::numeric AS turnover
-                  FROM public.broker_daily_features WHERE business_date=%s GROUP BY broker_id
-                )
-                SELECT stock_symbol, a, b, amt_ab, amt_ba, trades_ab, trades_ba,
-                  (amt_ab+amt_ba)::numeric AS pair_total,
-                  LEAST(amt_ab,amt_ba)::numeric AS min_side,
-                  CASE WHEN (amt_ab+amt_ba)=0 THEN 0 ELSE LEAST(amt_ab,amt_ba)/(amt_ab+amt_ba) END AS balance_ratio,
-                  COALESCE(ta.turnover,0)::numeric AS a_turnover,
-                  COALESCE(tb.turnover,0)::numeric AS b_turnover
-                FROM paired
-                LEFT JOIN broker_turnover ta ON ta.broker_id=a
-                LEFT JOIN broker_turnover tb ON tb.broker_id=b
-                ORDER BY min_side DESC, pair_total DESC
-                """,
-                (d, d),
-            )
-            pair_flags = 0
-            for sym, a, b, amt_ab, amt_ba, trades_ab, trades_ba, pair_total, min_side, bal, a_turn, b_turn in cur.fetchall():
-                if pair_flags >= 50: break
-                if float(min_side or 0) < 1000000: continue
-                if float(bal or 0) < 0.40: continue
-                a_t = float(a_turn or 0)
-                b_t = float(b_turn or 0)
-                details = {"symbol": sym, "counterparty": int(b),
-                           "a_to_b_amount": float(amt_ab), "b_to_a_amount": float(amt_ba),
-                           "pair_total_amount": float(pair_total), "min_side_amount": float(min_side or 0),
-                           "balance_ratio": float(bal or 0), "a_trades": int(trades_ab), "b_trades": int(trades_ba),
-                           "pair_share_of_a_turnover": round(float(pair_total)/a_t if a_t > 0 else 0, 6)}
-            # 5) Counterparty dominance
+            # 4) Counterparty dominance
             cur.execute(
                 """
                 WITH pair_amt AS (

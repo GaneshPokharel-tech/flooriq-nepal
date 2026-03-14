@@ -44,8 +44,93 @@ def _friendly_anomaly_label(anomaly_type: str) -> str:
         "wash_candidate_roundtrip": "Candidate round-trip pattern",
         "wash_candidate_self_trade": "Candidate self-trade pattern",
         "wash_candidate_circular_flow": "Candidate circular flow pattern",
+        "wash_trading_v2.1_circular": "Legacy circular-flow heuristic flag",
+        "wash_counterparty_dominance": "Counterparty concentration flag",
+        "broker_net_amount_spike": "Net amount spike flag",
+        "symbol_turnover_spike": "Turnover spike flag",
+        "isolation_forest_anomaly": "ML anomaly flag",
     }
     return mapping.get(anomaly_type, anomaly_type.replace("_", " ").strip())
+
+
+def _anomaly_details_summary(label, details) -> str:
+    try:
+        if isinstance(details, dict):
+            d = details
+        elif isinstance(details, str) and details.strip():
+            d = json.loads(details)
+        else:
+            d = {}
+    except Exception:
+        d = {}
+
+    if not isinstance(d, dict) or not d:
+        return ""
+
+    if label == "Candidate round-trip pattern":
+        sym = d.get("symbol") or "-"
+        cp = d.get("counterparty") or "-"
+        risk = d.get("risk_band") or "-"
+        hp = d.get("historical_pair_days", 0)
+        hc = d.get("heuristic_components") or {}
+        lag = hc.get("time_delta_minutes", "-")
+        px = hc.get("price_deviation_pct", "-")
+        return f"Symbol: {sym} | Counterparty: Broker {cp} | Risk: {risk} | Lag(min): {lag} | Px dev%: {px} | Historical pair days: {hp}"
+
+    if label == "Candidate self-trade pattern":
+        sym = d.get("symbol") or "-"
+        risk = d.get("risk_band") or "-"
+        hc = d.get("heuristic_components") or {}
+        cnt = hc.get("self_trade_count", "-")
+        amt = hc.get("total_self_amount")
+        amt_txt = _fmt(amt) if amt is not None else "-"
+        return f"Symbol: {sym} | Risk: {risk} | Self trades: {cnt} | Total amount: {amt_txt}"
+
+    if label == "Legacy circular-flow heuristic flag":
+        pattern = d.get("pattern") or "-"
+        flow = d.get("total_circular_flow")
+        flow_txt = _fmt(flow) if flow is not None else "-"
+        return f"Legacy pattern: {pattern} | Circular flow: {flow_txt}"
+
+    if label == "Counterparty concentration flag":
+        cp = d.get("counterparty") or "-"
+        share = d.get("share")
+        turnover = d.get("broker_turnover")
+        linked = d.get("with_counterparty_amount")
+        share_txt = f"{float(share) * 100:.2f}%" if share is not None else "-"
+        turnover_txt = _fmt(turnover) if turnover is not None else "-"
+        linked_txt = _fmt(linked) if linked is not None else "-"
+        return f"Counterparty: Broker {cp} | Share: {share_txt} | Broker turnover: {turnover_txt} | Linked amount: {linked_txt}"
+
+    if label == "Net amount spike flag":
+        z = d.get("z")
+        net_amount = d.get("net_amount")
+        z_txt = f"{float(z):.2f}" if z is not None else "-"
+        net_txt = _fmt(net_amount) if net_amount is not None else "-"
+        return f"Z-score: {z_txt} | Net amount: {net_txt}"
+
+    if label == "Turnover spike flag":
+        z = d.get("z")
+        total_amount = d.get("total_amount")
+        z_txt = f"{float(z):.2f}" if z is not None else "-"
+        amt_txt = _fmt(total_amount) if total_amount is not None else "-"
+        return f"Z-score: {z_txt} | Total amount: {amt_txt}"
+
+    if label == "ML anomaly flag":
+        if_score = d.get("if_score")
+        threshold = d.get("threshold")
+        if_txt = f"{float(if_score):.3f}" if if_score is not None else "-"
+        th_txt = f"{float(threshold):.3f}" if threshold is not None else "-"
+        return f"IF score: {if_txt} | Threshold: {th_txt} | Model: IsolationForest"
+
+    parts = []
+    if d.get("counterparty") is not None:
+        parts.append(f"Counterparty: Broker {d['counterparty']}")
+    if d.get("symbol"):
+        parts.append(f"Symbol: {d['symbol']}")
+    if d.get("z") is not None:
+        parts.append(f"Z: {float(d['z']):.2f}")
+    return " | ".join(parts[:6])
 
 
 @router.get("/reports/broker/{broker_id}.pdf")
@@ -449,15 +534,6 @@ async def broker_report_pdf(
     # ── ANOMALIES ─────────────────────────────────────────────────────────────
     pdf.section_title("Anomaly Detection Flags")
 
-    ANOM_LABELS = {
-        "wash_pair_roundtrip":         ("Wash Trading - Round Trip",     C_RED),
-        "wash_counterparty_dominance": ("Counterparty Dominance",        (168, 85, 247)),
-        "broker_net_amount_spike":     ("Net Amount Spike (Z-Score)",    C_AMBER),
-        "symbol_turnover_spike":       ("Turnover Spike (Z-Score)",      C_AMBER),
-        "self_trade_heavy":            ("Self Trade Heavy",              (59, 130, 246)),
-        "isolation_forest_anomaly":    ("ML Anomaly - Isolation Forest", C_GREEN),
-    }
-
     if not arows:
         y = pdf.get_y()
         pdf.set_fill_color(10, 28, 18)
@@ -468,8 +544,8 @@ async def broker_report_pdf(
         pdf.cell(0, 8, _pdf_safe("No anomalies detected for this date."))
         pdf.ln()
     else:
-        for atype, score, details in arows:
-            label, acolor = ANOM_LABELS.get(atype, (str(atype), C_MUTED))
+        for label, score, details in arows:
+            acolor = C_MUTED
             score_f = float(score)
 
             y = pdf.get_y()
@@ -493,28 +569,7 @@ async def broker_report_pdf(
             pdf.set_xy(15, y + 6.5)
             pdf.set_text_color(*C_MUTED)
             pdf.set_font("Helvetica", "", 7)
-            det_str = ""
-            try:
-                if isinstance(details, dict):
-                    d = details
-                elif isinstance(details, str):
-                    d = json.loads(details)
-                else:
-                    d = {}
-                parts = []
-                if d.get("counterparty"):
-                    parts.append(f"Counterparty: Broker {d['counterparty']}")
-                if d.get("symbol"):
-                    parts.append(f"Symbol: {d['symbol']}")
-                if d.get("balance_ratio"):
-                    parts.append(f"Balance: {float(d['balance_ratio']):.2f}")
-                if d.get("if_score"):
-                    parts.append(f"IF Score: {float(d['if_score']):.3f}")
-                if d.get("z"):
-                    parts.append(f"Z: {float(d['z']):.2f}")
-                det_str = "  |  ".join(parts) if parts else ""
-            except Exception:
-                det_str = ""
+            det_str = _anomaly_details_summary(label, details)
             pdf.cell(0, 3, _pdf_safe(det_str[:110]))
             pdf.ln(4)
 

@@ -126,6 +126,18 @@ def upsert_raw(conn, df: pd.DataFrame):
             print(f"[raw_floorsheet] upserted {total}/{len(df)}")
     conn.commit()
 
+def clear_business_date_slice(conn, business_date):
+    """
+    Treat the incoming CSV as the authoritative snapshot for one business_date.
+    Remove existing rows for that date first so stale contract_ids do not survive
+    across reruns when the upstream export changes.
+    """
+    with conn.cursor() as cur:
+        cur.execute(f"DELETE FROM {TRADES_TABLE} WHERE business_date=%s", (business_date,))
+        cur.execute(f"DELETE FROM {RAW_TABLE} WHERE business_date=%s", (business_date,))
+    conn.commit()
+
+
 def refresh_trades(conn, business_date):
     """
     Build/refresh normalized trades for one business_date from raw_floorsheet.
@@ -183,6 +195,8 @@ def main():
 
     with get_conn() as conn:
         print("[INFO] Connected to Supabase Postgres.")
+        print(f"[INFO] Clearing existing raw/trades slice for {business_date}...")
+        clear_business_date_slice(conn, business_date)
         upsert_raw(conn, df)
         print("[INFO] Refreshing normalized trades...")
         refresh_trades(conn, business_date)

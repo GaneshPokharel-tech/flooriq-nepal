@@ -67,6 +67,11 @@ def _friendly_anomaly_label(anomaly_type: str) -> str:
         "wash_candidate_roundtrip": "Candidate round-trip pattern",
         "wash_candidate_self_trade": "Candidate self-trade pattern",
         "wash_candidate_circular_flow": "Candidate circular flow pattern",
+        "wash_trading_v2.1_circular": "Legacy circular-flow heuristic flag",
+        "wash_counterparty_dominance": "Counterparty concentration flag",
+        "broker_net_amount_spike": "Net amount spike flag",
+        "symbol_turnover_spike": "Turnover spike flag",
+        "isolation_forest_anomaly": "ML anomaly flag",
     }
     return mapping.get(anomaly_type, anomaly_type.replace("_", " ").strip())
     
