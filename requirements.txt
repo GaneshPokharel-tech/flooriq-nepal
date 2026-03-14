@@ -135,3 +135,5 @@ jinja2==3.1.6
 python-multipart==0.0.9
 
 fpdf2==2.7.9
+
+scikit-learn==1.7.2
