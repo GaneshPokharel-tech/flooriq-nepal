@@ -102,6 +102,45 @@ def detect_enhanced_wash_trading(cur, business_date: str):
         print("Mode: history-enabled candidate analysis")
     else:
         print("Mode: base candidate analysis only (history threshold not met; circular flow disabled)")
+
+    pair_recurrence = {}
+    if history_enabled:
+        cur.execute("""
+            WITH recent_days AS (
+                SELECT business_date
+                FROM public.trades
+                WHERE business_date < %s
+                GROUP BY business_date
+                ORDER BY business_date DESC
+                LIMIT 20
+            ),
+            pair_days AS (
+                SELECT
+                    stock_symbol,
+                    LEAST(buyer_member_id, seller_member_id) AS broker_lo,
+                    GREATEST(buyer_member_id, seller_member_id) AS broker_hi,
+                    business_date
+                FROM public.trades
+                WHERE business_date IN (SELECT business_date FROM recent_days)
+                  AND buyer_member_id > 0
+                  AND seller_member_id > 0
+                  AND buyer_member_id <> seller_member_id
+                  AND amount >= 100000
+                GROUP BY stock_symbol,
+                         LEAST(buyer_member_id, seller_member_id),
+                         GREATEST(buyer_member_id, seller_member_id),
+                         business_date
+            )
+            SELECT stock_symbol, broker_lo, broker_hi, COUNT(*)::int AS active_days
+            FROM pair_days
+            GROUP BY stock_symbol, broker_lo, broker_hi
+            HAVING COUNT(*) >= 2
+        """, (business_date,))
+        pair_recurrence = {
+            ((symbol or "").strip().upper(), int(lo), int(hi)): int(active_days)
+            for symbol, lo, hi, active_days in cur.fetchall()
+        }
+        print(f"Historical pair recurrence entries loaded: {len(pair_recurrence)}")
     
     # Fetch high-value trades
     cur.execute("""
@@ -190,7 +229,10 @@ def detect_enhanced_wash_trading(cur, business_date: str):
                         tod_multiplier,
                         is_breakeven
                     )
-                    
+
+                    pair_key = (symbol.upper(), min(broker_a, broker_b), max(broker_a, broker_b))
+                    historical_pair_days = pair_recurrence.get(pair_key, 0)
+
                     # Apply repetition multiplier
                     score = min(1.0, score * repetition_multiplier)
                     
@@ -214,6 +256,7 @@ def detect_enhanced_wash_trading(cur, business_date: str):
                                 'round_quantities': both_round,
                                 'trades_today': total_trades_today,
                                 'time_of_day_risk': round(tod_multiplier, 2),
+                                'historical_pair_days': historical_pair_days,
                                 'composite_score': score,
                                 'risk_band': risk_band
                             })
