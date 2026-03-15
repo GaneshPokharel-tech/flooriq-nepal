@@ -37,12 +37,7 @@ def load_symbol_trade_map(cur, calculation_date, start_business_date, has_contra
         cur.execute("""
             SELECT stock_symbol, trade_time, buyer_member_id, seller_member_id,
                    price, amount,
-                   COALESCE(contract_id::text,
-                            trade_time::text || ':' ||
-                            buyer_member_id::text || ':' ||
-                            seller_member_id::text || ':' ||
-                            price::text || ':' ||
-                            amount::text) as tid
+                   contract_id::text as tid
             FROM trades
             WHERE business_date >= %s
               AND business_date <= %s
@@ -534,6 +529,7 @@ def main():
             """, (calculation_date, lookback_sessions))
             start_business_date = cur.fetchone()[0]
 
+            cur.execute("SET LOCAL enable_indexscan = off")
             symbol_trade_map = load_symbol_trade_map(
                 cur, calculation_date, start_business_date, has_contract_id
             )

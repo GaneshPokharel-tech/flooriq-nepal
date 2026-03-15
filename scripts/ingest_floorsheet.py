@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -155,20 +156,7 @@ def refresh_trades(conn, business_date):
       stock_id
     FROM {RAW_TABLE}
     WHERE business_date = %s
-    ON CONFLICT (contract_id) DO UPDATE SET
-      business_date = EXCLUDED.business_date,
-      trade_time = EXCLUDED.trade_time,
-      stock_symbol = EXCLUDED.stock_symbol,
-      security_name = EXCLUDED.security_name,
-      buyer_member_id = EXCLUDED.buyer_member_id,
-      seller_member_id = EXCLUDED.seller_member_id,
-      buyer_broker_name = EXCLUDED.buyer_broker_name,
-      seller_broker_name = EXCLUDED.seller_broker_name,
-      qty = EXCLUDED.qty,
-      price = EXCLUDED.price,
-      amount = EXCLUDED.amount,
-      trade_book_id = EXCLUDED.trade_book_id,
-      stock_id = EXCLUDED.stock_id
+    ON CONFLICT (contract_id) DO NOTHING
     ;
     """
     with conn.cursor() as cur:
@@ -183,10 +171,18 @@ def main():
     with get_conn() as conn:
         print("[INFO] Connected to Supabase Postgres.")
         print(f"[INFO] Clearing existing raw/trades slice for {business_date}...")
+        t0 = time.time()
         clear_business_date_slice(conn, business_date)
+        print(f"[TIMING] clear slice: {time.time() - t0:.2f}s")
+
+        t0 = time.time()
         upsert_raw(conn, df)
+        print(f"[TIMING] upsert raw: {time.time() - t0:.2f}s")
+
         print("[INFO] Refreshing normalized trades...")
+        t0 = time.time()
         refresh_trades(conn, business_date)
+        print(f"[TIMING] refresh trades: {time.time() - t0:.2f}s")
 
         # quick counts
         with conn.cursor() as cur:
