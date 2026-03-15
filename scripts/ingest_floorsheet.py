@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -5,7 +6,7 @@ import pandas as pd
 
 from app.database import get_conn
 
-CSV_PATH = Path("data/raw/floorsheet_latest.csv")
+CSV_PATH = Path(os.environ.get("FLOORIQ_CSV_PATH", "data/raw/floorsheet_latest.csv"))
 
 RAW_TABLE = "public.raw_floorsheet"
 TRADES_TABLE = "public.trades"

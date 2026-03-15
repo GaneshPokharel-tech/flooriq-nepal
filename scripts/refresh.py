@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-DEFAULT_CSV = Path("data/raw/floorsheet_latest.csv")
+DEFAULT_CSV = Path(os.environ.get("FLOORIQ_CSV_PATH", "data/raw/floorsheet_latest.csv"))
 
 
 def run(cmd: list[str]) -> None:
