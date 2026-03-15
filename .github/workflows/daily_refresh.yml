@@ -86,8 +86,41 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Restore floorsheet fallback artifact
+        id: restore_fallback
+        if: ${{ inputs.skip_fetch || steps.fetch.outputs.skip == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p data/raw /tmp/flooriq-fallback
+
+          RUN_ID="$(gh run list --workflow daily_refresh.yml --branch main --limit 20 --json databaseId,conclusion | python -c 'import json,sys; runs=json.load(sys.stdin); print(next((str(r["databaseId"]) for r in runs if r["conclusion"]=="success"), ""))')"
+
+          if [ -z "$RUN_ID" ]; then
+            echo "[ERROR] No successful daily-refresh run found for fallback artifact."
+            exit 1
+          fi
+
+          echo "[INFO] Downloading fallback artifact from run $RUN_ID"
+          gh run download "$RUN_ID" -n floorsheet-latest-csv -D /tmp/flooriq-fallback
+
+          gzip -dc /tmp/flooriq-fallback/floorsheet_latest.csv.gz > data/raw/floorsheet_latest.csv
+
+          if [ ! -s data/raw/floorsheet_latest.csv ]; then
+            echo "[ERROR] Restored fallback CSV is missing or empty."
+            exit 1
+          fi
+
+          if ! head -n 1 data/raw/floorsheet_latest.csv | grep -q "contractId"; then
+            echo "[ERROR] Restored fallback CSV header invalid."
+            exit 1
+          fi
+
+          ls -lh data/raw/floorsheet_latest.csv /tmp/flooriq-fallback/floorsheet_latest.csv.gz
+
       - name: Refresh pipeline (ingest + features + anomalies)
-        if: ${{ inputs.skip_fetch || steps.fetch.outputs.skip != 'true' }}
+        if: ${{ steps.fetch.outputs.skip != 'true' || steps.restore_fallback.outcome == 'success' }}
         env:
           SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
           SUPABASE_DB_PORT: ${{ secrets.SUPABASE_DB_PORT }}
@@ -102,7 +135,7 @@ jobs:
           PYTHONPATH=. python scripts/refresh.py --skip-fetch
 
       - name: WhatsApp daily alerts (dryrun)
-        if: ${{ inputs.skip_fetch || steps.fetch.outputs.skip != 'true' }}
+        if: ${{ steps.fetch.outputs.skip != 'true' || steps.restore_fallback.outcome == 'success' }}
         env:
           SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
           SUPABASE_DB_PORT: ${{ secrets.SUPABASE_DB_PORT }}
