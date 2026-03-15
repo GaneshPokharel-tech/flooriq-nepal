@@ -52,6 +52,8 @@ def _get_dashboard_context(conn: psycopg.Connection, request: Request):
 
     session_broker_id = get_session_broker_id(request)
     broker_locked = session_broker_id is not None
+    if broker_locked:
+        broker_ids = [int(session_broker_id)]
 
     stale_data_message = None
     if latest_bd is not None:
