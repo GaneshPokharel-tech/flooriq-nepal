@@ -5,6 +5,7 @@ Uses high-threshold pattern detection inspired by academic research
 """
 
 import sys
+import time
 from collections import defaultdict
 from datetime import datetime
 from statistics import mean, stdev
@@ -477,7 +478,9 @@ def main():
         print("matcher_mode must be one of: fast, legacy, compare")
         sys.exit(1)
     start_time = datetime.now()
+    wall_started = time.time()
     
+    load_started = time.time()
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("""
@@ -535,6 +538,8 @@ def main():
                 cur, calculation_date, start_business_date, has_contract_id
             )
 
+    print(f"[TIMING] load/window/trade-map: {time.time() - load_started:.2f}s")
+
     symbols = sorted([
         symbol for symbol, rows in symbol_trade_map.items()
         if len(rows) >= 20
@@ -550,6 +555,7 @@ def main():
         print(f"COMPARE COMPLETE: {runtime:.1f} minutes")
         return
 
+    analyze_started = time.time()
     total_inserted = 0
     rows_to_insert = []
 
@@ -574,6 +580,9 @@ def main():
             ))
             total_inserted += 1
 
+    print(f"[TIMING] symbol analysis: {time.time() - analyze_started:.2f}s")
+
+    write_started = time.time()
     with get_conn() as write_conn:
         with write_conn.cursor() as write_cur:
             write_cur.execute("DELETE FROM leader_follower_patterns WHERE calculation_date = %s", (calculation_date,))
@@ -590,6 +599,9 @@ def main():
 
             write_conn.commit()
 
+    print(f"[TIMING] db write: {time.time() - write_started:.2f}s")
+
+    report_started = time.time()
     runtime = (datetime.now() - start_time).total_seconds() / 60
 
     print(f"\n{'='*70}")
@@ -672,6 +684,8 @@ def main():
             print("  - True validation requires 30+ days + formal hypothesis testing")
             print("="*70 + "\n")
 
+    print(f"[TIMING] reporting: {time.time() - report_started:.2f}s")
+    print(f"[TIMING] total leader-follower wall time: {time.time() - wall_started:.2f}s")
 
 if __name__ == "__main__":
     main()
