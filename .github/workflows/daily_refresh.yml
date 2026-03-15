@@ -95,15 +95,21 @@ jobs:
           set -euo pipefail
           mkdir -p data/raw /tmp/flooriq-fallback
 
-          RUN_ID="$(gh run list --workflow daily_refresh.yml --branch main --limit 20 --json databaseId,conclusion | python -c 'import json,sys; runs=json.load(sys.stdin); print(next((str(r["databaseId"]) for r in runs if r["conclusion"]=="success"), ""))')"
+          RUN_ID=""
+          for CANDIDATE_RUN_ID in $(gh run list --workflow daily_refresh.yml --branch main --limit 20 --json databaseId,conclusion | python -c 'import json,sys; runs=json.load(sys.stdin); print(" ".join(str(r["databaseId"]) for r in runs if r["conclusion"]=="success"))'); do
+            rm -rf /tmp/flooriq-fallback/*
+            if gh run download "$CANDIDATE_RUN_ID" -n floorsheet-latest-csv -D /tmp/flooriq-fallback >/dev/null 2>&1; then
+              RUN_ID="$CANDIDATE_RUN_ID"
+              break
+            fi
+          done
 
           if [ -z "$RUN_ID" ]; then
-            echo "[ERROR] No successful daily-refresh run found for fallback artifact."
+            echo "[ERROR] No successful daily-refresh run with floorsheet fallback artifact was found."
             exit 1
           fi
 
           echo "[INFO] Downloading fallback artifact from run $RUN_ID"
-          gh run download "$RUN_ID" -n floorsheet-latest-csv -D /tmp/flooriq-fallback
 
           gzip -dc /tmp/flooriq-fallback/floorsheet_latest.csv.gz > data/raw/floorsheet_latest.csv
 
