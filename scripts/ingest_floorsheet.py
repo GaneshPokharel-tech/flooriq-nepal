@@ -80,7 +80,7 @@ def chunker(df: pd.DataFrame, size: int):
         yield df.iloc[i:i+size]
 
 def upsert_raw(conn, df: pd.DataFrame):
-    # Upsert by primary key contract_id (ignore duplicates)
+    # Bulk load via temp table + COPY, then insert into target.
     cols = [
         "contract_id","stock_symbol","buyer_member_id","seller_member_id",
         "contract_quantity","contract_rate","contract_amount","business_date",
@@ -88,30 +88,30 @@ def upsert_raw(conn, df: pd.DataFrame):
         "trade_time","security_name","source"
     ]
 
-    insert_sql = f"""
-    INSERT INTO {RAW_TABLE} (
-      contract_id, stock_symbol, buyer_member_id, seller_member_id,
-      contract_quantity, contract_rate, contract_amount, business_date,
-      trade_book_id, stock_id, buyer_broker_name, seller_broker_name,
-      trade_time, security_name, source
-    )
-    VALUES (
-      %(contract_id)s, %(stock_symbol)s, %(buyer_member_id)s, %(seller_member_id)s,
-      %(contract_quantity)s, %(contract_rate)s, %(contract_amount)s, %(business_date)s,
-      %(trade_book_id)s, %(stock_id)s, %(buyer_broker_name)s, %(seller_broker_name)s,
-      %(trade_time)s, %(security_name)s, %(source)s
-    )
-    ON CONFLICT (contract_id) DO NOTHING
-    ;
-    """
+    col_list = ", ".join(cols)
 
     total = 0
     with conn.cursor() as cur:
-        for part in chunker(df, BATCH_SIZE):
-            records = part[cols].to_dict(orient="records")
-            cur.executemany(insert_sql, records)
-            total += len(records)
-            print(f"[raw_floorsheet] upserted {total}/{len(df)}")
+        cur.execute(f"""
+            CREATE TEMP TABLE tmp_raw_floorsheet
+            (LIKE {RAW_TABLE} INCLUDING DEFAULTS)
+            ON COMMIT DROP
+        """)
+
+        with cur.copy(f"COPY tmp_raw_floorsheet ({col_list}) FROM STDIN") as copy:
+            for part in chunker(df, BATCH_SIZE):
+                for row in part[cols].itertuples(index=False, name=None):
+                    copy.write_row(tuple(None if pd.isna(v) else v for v in row))
+                total += len(part)
+                print(f"[raw_floorsheet] copied {total}/{len(df)}")
+
+        cur.execute(f"""
+            INSERT INTO {RAW_TABLE} ({col_list})
+            SELECT {col_list}
+            FROM tmp_raw_floorsheet
+            ON CONFLICT (contract_id) DO NOTHING
+        """)
+
     conn.commit()
 
 def clear_business_date_slice(conn, business_date):
