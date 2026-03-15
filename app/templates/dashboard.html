@@ -278,6 +278,7 @@
     <!-- ── RIGHT: MARKET WIDGETS ── -->
     <aside>
 
+{% if not broker_locked %}
       <!-- Market HHI Card -->
       <div class="card fade d2" style="margin-bottom:16px;">
         <div class="card-head">
@@ -447,6 +448,8 @@
           <tbody id="topSymbols"></tbody>
         </table>
       </div>
+
+{% endif %}
 
     </aside>
   </div>
@@ -892,9 +895,6 @@
   window.addEventListener("DOMContentLoaded", () => {
     if (_brokerLocked && _sessionBid) {
       loadBroker();
-      loadAnomalies();
-      loadSectors();
-      loadMarketHHI();
     }
   });
 </script>
