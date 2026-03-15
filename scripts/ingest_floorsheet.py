@@ -100,21 +100,7 @@ def upsert_raw(conn, df: pd.DataFrame):
       %(trade_book_id)s, %(stock_id)s, %(buyer_broker_name)s, %(seller_broker_name)s,
       %(trade_time)s, %(security_name)s, %(source)s
     )
-    ON CONFLICT (contract_id) DO UPDATE SET
-      stock_symbol = EXCLUDED.stock_symbol,
-      buyer_member_id = EXCLUDED.buyer_member_id,
-      seller_member_id = EXCLUDED.seller_member_id,
-      contract_quantity = EXCLUDED.contract_quantity,
-      contract_rate = EXCLUDED.contract_rate,
-      contract_amount = EXCLUDED.contract_amount,
-      business_date = EXCLUDED.business_date,
-      trade_book_id = EXCLUDED.trade_book_id,
-      stock_id = EXCLUDED.stock_id,
-      buyer_broker_name = EXCLUDED.buyer_broker_name,
-      seller_broker_name = EXCLUDED.seller_broker_name,
-      trade_time = EXCLUDED.trade_time,
-      security_name = EXCLUDED.security_name,
-      source = EXCLUDED.source
+    ON CONFLICT (contract_id) DO NOTHING
     ;
     """
 
