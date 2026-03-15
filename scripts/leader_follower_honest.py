@@ -64,7 +64,7 @@ def load_symbol_trade_map(cur, calculation_date, start_business_date, has_contra
         """, (start_business_date, calculation_date))
 
     symbol_trade_map = defaultdict(list)
-    for symbol, ttime, buyer, seller, price, amt, tid in cur.fetchall():
+    for symbol, ttime, buyer, seller, price, amt, tid in cur:
         symbol_trade_map[symbol].append((ttime, buyer, seller, price, amt, tid))
 
     return symbol_trade_map
