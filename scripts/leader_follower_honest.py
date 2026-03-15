@@ -321,11 +321,11 @@ def check_leading_pattern_fast(leader_trades, follower_trades):
             if lag > TIME_WINDOW:
                 break
 
-            if lag < best_lag:
-                best_lag = lag
-                best_match = ftrade
-
-            k += 1
+            # follower_trades is time-ordered, so the first unused future trade
+            # inside the time window is the nearest valid match.
+            best_lag = lag
+            best_match = ftrade
+            break
 
         if best_match:
             instances += 1
