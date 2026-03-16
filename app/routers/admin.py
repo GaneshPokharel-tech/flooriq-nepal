@@ -208,7 +208,24 @@ async def panel_dashboard(request: Request, admin: str = Depends(require_panel_a
         """, (today, today))
         sub_rows = [dict(zip(["broker_id","plan","is_active","trial_end","subscription_end","email","phone","created_at","status"], r)) for r in cur.fetchall()]
 
-        cur.execute("SELECT DISTINCT broker_id FROM public.broker_daily_features WHERE broker_id > 0 ORDER BY broker_id")
+        cur.execute("""
+            WITH broker_universe AS (
+                SELECT buyer_member_id::text AS broker_id
+                FROM public.trades
+                WHERE buyer_member_id > 0
+                UNION
+                SELECT seller_member_id::text AS broker_id
+                FROM public.trades
+                WHERE seller_member_id > 0
+                UNION
+                SELECT broker_id
+                FROM public.brokers_subscription
+                WHERE broker_id IS NOT NULL AND broker_id <> ''
+            )
+            SELECT broker_id
+            FROM broker_universe
+            ORDER BY broker_id::int
+        """)
         feature_bids = [str(r[0]) for r in cur.fetchall()]
 
         brokers_by_id = {str(b["broker_id"]): b for b in sub_rows}

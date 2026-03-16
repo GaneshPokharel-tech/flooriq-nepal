@@ -37,12 +37,23 @@ def _get_dashboard_context(conn: psycopg.Connection, request: Request):
 
             cur.execute(
                 """
+                WITH broker_universe AS (
+                    SELECT buyer_member_id AS broker_id
+                    FROM public.trades
+                    WHERE buyer_member_id > 0
+                    UNION
+                    SELECT seller_member_id AS broker_id
+                    FROM public.trades
+                    WHERE seller_member_id > 0
+                    UNION
+                    SELECT broker_id::int AS broker_id
+                    FROM public.brokers_subscription
+                    WHERE broker_id IS NOT NULL AND broker_id <> ''
+                )
                 SELECT broker_id
-                FROM public.broker_daily_features
-                WHERE business_date=%s
+                FROM broker_universe
                 ORDER BY broker_id
-                """,
-                (latest_bd,),
+                """
             )
             for (bid,) in cur.fetchall():
                 try:
