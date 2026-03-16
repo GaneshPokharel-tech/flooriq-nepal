@@ -81,6 +81,16 @@ def perform_model_status_action(
             "notes": notes,
         }
 
+        cur.execute(
+            """
+            SELECT COUNT(*)
+            FROM public.model_registry
+            WHERE model_name = %s
+            """,
+            (model_name,),
+        )
+        registered_versions = int(cur.fetchone()[0] or 0)
+
         run_status = "started"
         new_status = current_status
 
@@ -170,6 +180,10 @@ def perform_model_status_action(
                 raise ModelLifecycleError(
                     f"Retire requires current status in ('candidate','validated','active'), got '{current_status}'"
                 )
+            if registered_versions <= 1:
+                raise ModelLifecycleError(
+                    "Retire blocked: cannot retire the only registered version for this model"
+                )
             cur.execute(
                 """
                 UPDATE public.model_registry
@@ -206,6 +220,10 @@ def perform_model_status_action(
                 (model_name, model_registry_id),
             )
             active_rows = cur.fetchall()
+            if not active_rows:
+                raise ModelLifecycleError(
+                    "Rollback blocked: no other active version exists for this model"
+                )
 
             cur.execute(
                 """

@@ -271,6 +271,8 @@ async def panel_dashboard(request: Request, admin: str = Depends(require_panel_a
                 mr.trained_at,
                 mr.promoted_at,
                 mr.retired_at,
+                stats.registered_versions,
+                stats.other_active_versions,
                 lr.run_id,
                 lr.run_type,
                 lr.run_status,
@@ -278,6 +280,13 @@ async def panel_dashboard(request: Request, admin: str = Depends(require_panel_a
                 lr.started_at,
                 lr.completed_at
             FROM public.model_registry mr
+            LEFT JOIN LATERAL (
+                SELECT
+                    COUNT(*)::int AS registered_versions,
+                    COUNT(*) FILTER (WHERE status = 'active' AND id <> mr.id)::int AS other_active_versions
+                FROM public.model_registry mr2
+                WHERE mr2.model_name = mr.model_name
+            ) stats ON TRUE
             LEFT JOIN LATERAL (
                 SELECT
                     tr.id AS run_id,
@@ -314,6 +323,8 @@ async def panel_dashboard(request: Request, admin: str = Depends(require_panel_a
             "trained_at",
             "promoted_at",
             "retired_at",
+            "registered_versions",
+            "other_active_versions",
             "latest_run_id",
             "latest_run_type",
             "latest_run_status",

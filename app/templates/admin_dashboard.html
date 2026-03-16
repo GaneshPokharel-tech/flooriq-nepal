@@ -250,8 +250,8 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
             {% set latest_run_class = 'approved' if m.latest_run_status == 'succeeded' else 'rejected' if m.latest_run_status == 'failed' else 'pending' if m.latest_run_status in ['started', 'skipped'] else 'inactive' %}
             {% set can_validate = m.status == 'candidate' and m.data_sufficiency_passed and m.data_quality_passed %}
             {% set can_promote = m.status in ['validated', 'candidate'] and m.data_sufficiency_passed and m.data_quality_passed %}
-            {% set can_retire = m.status in ['candidate', 'validated', 'active'] %}
-            {% set can_rollback = m.data_sufficiency_passed and m.data_quality_passed %}
+            {% set can_retire = m.status in ['candidate', 'validated', 'active'] and (m.registered_versions or 0) > 1 %}
+            {% set can_rollback = m.data_sufficiency_passed and m.data_quality_passed and (m.other_active_versions or 0) > 0 %}
             <tr>
               <td>
                 <div style="font-weight:700;">{{ m.model_name }}</div>
