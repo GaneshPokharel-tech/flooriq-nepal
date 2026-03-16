@@ -18,6 +18,7 @@ except Exception:
 
 from app.config import Settings
 from app.dependencies import redis_client
+from app.database import get_conn
 
 logger = logging.getLogger("flooriq")
 _ph = PasswordHasher() if PasswordHasher else None
@@ -180,6 +181,29 @@ async def audit_event(redis, broker_id: int, action: str, request: Request, extr
         ev.update(extra)
 
     logger.info(f"[audit] broker={broker_id} action={action} path={request.url.path} rid={rid}")
+
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO public.broker_audit_log
+                    (ts, broker_id, action, method, path, rid, extra)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb)
+                    """,
+                    (
+                        ev["ts"],
+                        str(int(broker_id)),
+                        action,
+                        request.method,
+                        request.url.path,
+                        rid,
+                        json.dumps(extra or {}, default=str),
+                    ),
+                )
+            conn.commit()
+    except Exception:
+        pass
 
     if redis is None:
         return

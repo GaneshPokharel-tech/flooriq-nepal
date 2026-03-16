@@ -79,18 +79,64 @@ async def refresh(ref: str = DEFAULT_REF):
     return {"ok": True, "message": "Workflow dispatch triggered"}
 
 @router.get("/admin/audit/{broker_id}")
-async def audit(broker_id: int, limit: int = 50, redis=Depends(redis_client)):
+async def audit(
+    broker_id: int,
+    limit: int = 50,
+    redis=Depends(redis_client),
+    conn: psycopg.Connection = Depends(db_conn),
+):
+    limit = min(max(limit, 1), 200)
+
+    data = []
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT ts, broker_id, action, method, path, rid, extra
+                FROM public.broker_audit_log
+                WHERE broker_id = %s
+                ORDER BY id DESC
+                LIMIT %s
+                """,
+                (str(int(broker_id)), limit),
+            )
+            rows = cur.fetchall()
+
+        for ts, bid, action, method, path, rid, extra in rows:
+            rec = {
+                "ts": ts.isoformat() if ts else None,
+                "broker_id": int(bid),
+                "action": action,
+                "method": method,
+                "path": path,
+                "rid": rid,
+            }
+            if isinstance(extra, dict):
+                rec.update(extra)
+            elif extra is not None:
+                rec["extra"] = extra
+            data.append(rec)
+
+        if data:
+            return {"ok": True, "broker_id": broker_id, "count": len(data), "data": data}
+    except Exception:
+        pass
+
     if redis is None:
-        return {"ok": False, "count": 0, "data": []}
+        return {"ok": True, "broker_id": broker_id, "count": 0, "data": []}
+
     key = f"audit:broker:{int(broker_id)}"
     try:
-        rows = await redis.lrange(key, 0, min(max(limit,1),200) - 1)
+        rows = await redis.lrange(key, 0, limit - 1)
     except Exception:
         rows = []
-    data = []
+
     for r in rows:
-        try: data.append(json.loads(r))
-        except: data.append({"raw": r})
+        try:
+            data.append(json.loads(r))
+        except Exception:
+            data.append({"raw": r})
+
     return {"ok": True, "broker_id": broker_id, "count": len(data), "data": data}
 
 @router.post("/admin/brokers/set")
