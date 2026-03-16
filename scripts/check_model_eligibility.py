@@ -93,6 +93,30 @@ def main():
             data_sufficiency_passed = actual_history_days >= rule["min_history_days_required"]
             data_quality_passed = actual_history_days > 0  # minimal placeholder; can be hardened later
 
+            cur.execute(
+                """
+                UPDATE public.model_registry
+                SET
+                    training_window_start = %s,
+                    training_window_end = %s,
+                    min_history_days_required = %s,
+                    actual_history_days_used = %s,
+                    data_sufficiency_passed = %s,
+                    data_quality_passed = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+                """,
+                (
+                    training_window_start,
+                    training_window_end,
+                    rule["min_history_days_required"],
+                    actual_history_days,
+                    data_sufficiency_passed,
+                    data_quality_passed,
+                    model_registry_id,
+                ),
+            )
+
             run_status = "succeeded" if data_sufficiency_passed and data_quality_passed else "skipped"
             summary = {
                 "as_of_date": as_of_date,
