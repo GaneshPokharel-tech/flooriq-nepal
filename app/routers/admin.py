@@ -12,6 +12,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from app.config import Settings
 from app.dependencies import db_conn, redis_client
 from app.broker_auth import hash_password, set_broker_config, sign_admin_session, admin_cookie_name
+from app.services.model_lifecycle import ModelLifecycleError, perform_model_status_action
 
 router = APIRouter(tags=["admin"])
 templates = Jinja2Templates(directory="app/templates")
@@ -402,6 +403,46 @@ async def panel_set_email(
         )
     conn.commit()
     return {"ok": True}
+
+
+@router.post("/admin/panel/model-lifecycle/action")
+async def panel_model_lifecycle_action(
+    request: Request,
+    admin: str = Depends(require_panel_admin),
+    conn: psycopg.Connection = Depends(db_conn),
+):
+    payload = await request.json()
+    model_name = (payload.get("model_name") or "").strip()
+    model_version = (payload.get("model_version") or "").strip()
+    action = (payload.get("action") or "").strip().lower()
+    notes = (payload.get("notes") or "").strip()
+
+    try:
+        result = perform_model_status_action(
+            conn=conn,
+            model_name=model_name,
+            model_version=model_version,
+            action=action,
+            triggered_by=f"admin_panel:{admin}",
+            notes=notes,
+        )
+    except ModelLifecycleError as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {
+        "ok": True,
+        "model_name": result.model_name,
+        "model_version": result.model_version,
+        "action": result.action,
+        "previous_status": result.previous_status,
+        "new_status": result.new_status,
+        "run_id": result.run_id,
+        "run_status": result.run_status,
+    }
 
 
 @router.get("/admin/debug-broker/{broker_id}")
