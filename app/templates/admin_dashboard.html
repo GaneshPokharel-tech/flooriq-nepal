@@ -76,6 +76,9 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
 .broker-meta-card .v{font-size:14px;font-weight:600;word-break:break-word;}
 .quick-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
 .btn.ghost{background:var(--surface);border:1px solid var(--border);color:var(--text);}
+.lifecycle-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;min-width:168px;}
+.lifecycle-actions .btn{justify-content:center;padding:5px 8px;font-size:11px;}
+.lifecycle-guard-note{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.35;max-width:168px;}
 </style>
 </head>
 <body>
@@ -287,13 +290,13 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
                 {% endif %}
               </td>
               <td>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;min-width:220px;">
+                <div class="lifecycle-actions">
                   <button type="button" class="btn ghost" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "validate")' {% if not can_validate %}disabled{% endif %}>Validate</button>
                   <button type="button" class="btn ghost" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "promote")' {% if not can_promote %}disabled{% endif %}>Promote</button>
                   <button type="button" class="btn ghost" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "retire")' {% if not can_retire %}disabled{% endif %}>Retire</button>
                   <button type="button" class="btn ghost" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "rollback")' {% if not can_rollback %}disabled{% endif %}>Rollback</button>
                 </div>
-                <div style="font-size:10px;color:var(--muted);margin-top:6px;">Server-side guardrails remain authoritative.</div>
+                <div class="lifecycle-guard-note">Retire / Rollback require typed confirmation. Server-side guardrails remain authoritative.</div>
               </td>
             </tr>
             {% endfor %}
@@ -673,8 +676,19 @@ window.addEventListener("load", () => {
 
 async function runLifecycleAction(modelName, modelVersion, action) {
   const msgEl = document.getElementById("lifecycleMsg");
-  const label = `${action.toUpperCase()} ${modelName} ${modelVersion}`;
-  if (!confirm(`Proceed with ${label}?`)) return;
+  const actionUpper = action.toUpperCase();
+  const label = `${actionUpper} ${modelName} ${modelVersion}`;
+
+  if (action === "retire" || action === "rollback") {
+    const typed = prompt(`Destructive action: ${label}\n\nType ${actionUpper} to continue.`);
+    if (typed !== actionUpper) {
+      msgEl.style.cssText = "display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;background:#f5a62312;border:1px solid #f5a62340;color:var(--amber);";
+      msgEl.textContent = `${actionUpper} cancelled. Confirmation text did not match.`;
+      return;
+    }
+  } else {
+    if (!confirm(`Proceed with ${label}?`)) return;
+  }
 
   msgEl.style.cssText = "display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;background:#3b82f612;border:1px solid #3b82f640;color:var(--blue);";
   msgEl.textContent = `Running ${label}...`;
