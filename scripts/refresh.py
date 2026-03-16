@@ -79,6 +79,12 @@ def main() -> int:
         label="leader follower honest",
     )
 
+    # 7) Broker performance metrics (auto-enables advanced analytics as history grows)
+    run(
+        [sys.executable, "scripts/calculate_broker_performance.py", d],
+        label="calculate broker performance",
+    )
+
     total_elapsed = time.time() - total_started
     print(f"[DONE] refresh complete for {d} in {total_elapsed:.2f}s", flush=True)
     return 0
