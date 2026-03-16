@@ -252,6 +252,75 @@ async def panel_dashboard(request: Request, admin: str = Depends(require_panel_a
         pending_payments = [dict(zip(["id","broker_id","amount","months","bank_name","txn_reference","status","requested_at","notes"], r)) for r in cur.fetchall()]
         cur.execute("SELECT id,broker_id,amount,months,bank_name,txn_reference,status,requested_at,reviewed_at,notes FROM public.payment_requests ORDER BY requested_at DESC LIMIT 50")
         all_payments = [dict(zip(["id","broker_id","amount","months","bank_name","txn_reference","status","requested_at","reviewed_at","notes"], r)) for r in cur.fetchall()]
+
+        cur.execute("""
+            SELECT
+                mr.id,
+                mr.model_name,
+                mr.model_version,
+                mr.model_family,
+                mr.entity_scope,
+                mr.status,
+                mr.training_window_start,
+                mr.training_window_end,
+                mr.min_history_days_required,
+                mr.actual_history_days_used,
+                mr.data_sufficiency_passed,
+                mr.data_quality_passed,
+                mr.trained_at,
+                mr.promoted_at,
+                mr.retired_at,
+                lr.run_id,
+                lr.run_type,
+                lr.run_status,
+                lr.triggered_by,
+                lr.started_at,
+                lr.completed_at
+            FROM public.model_registry mr
+            LEFT JOIN LATERAL (
+                SELECT
+                    tr.id AS run_id,
+                    tr.run_type,
+                    tr.run_status,
+                    tr.triggered_by,
+                    tr.started_at,
+                    tr.completed_at
+                FROM public.model_training_runs tr
+                WHERE tr.model_registry_id = mr.id
+                   OR (
+                        tr.model_registry_id IS NULL
+                        AND tr.model_name = mr.model_name
+                        AND tr.intended_version = mr.model_version
+                   )
+                ORDER BY tr.started_at DESC, tr.id DESC
+                LIMIT 1
+            ) lr ON TRUE
+            ORDER BY mr.model_name ASC, mr.model_version DESC
+        """)
+        lifecycle_cols = [
+            "id",
+            "model_name",
+            "model_version",
+            "model_family",
+            "entity_scope",
+            "status",
+            "training_window_start",
+            "training_window_end",
+            "min_history_days_required",
+            "actual_history_days_used",
+            "data_sufficiency_passed",
+            "data_quality_passed",
+            "trained_at",
+            "promoted_at",
+            "retired_at",
+            "latest_run_id",
+            "latest_run_type",
+            "latest_run_status",
+            "latest_run_triggered_by",
+            "latest_run_started_at",
+            "latest_run_completed_at",
+        ]
+        model_lifecycle = [dict(zip(lifecycle_cols, r)) for r in cur.fetchall()]
     # Fix datetime serialization for tojson
     import datetime as _dt
     def _serial(obj):
@@ -263,9 +332,15 @@ async def panel_dashboard(request: Request, admin: str = Depends(require_panel_a
             if isinstance(b[k], (_dt.date, _dt.datetime)):
                 b[k] = b[k].isoformat()
 
+    for row in model_lifecycle:
+        for k in list(row.keys()):
+            if isinstance(row[k], (_dt.date, _dt.datetime)):
+                row[k] = row[k].isoformat()
+
     return templates.TemplateResponse("admin_dashboard.html", {
         "request": request, "admin": admin, "brokers": brokers,
         "pending_payments": pending_payments, "all_payments": all_payments,
+        "model_lifecycle": model_lifecycle,
         "total_brokers": len(brokers), "active_brokers": sum(1 for b in brokers if b["status"] == "unprovisioned"),
         "expired": sum(1 for b in brokers if b["status"]=="expired"), "pending_count": len(pending_payments), "today": today,
     })
