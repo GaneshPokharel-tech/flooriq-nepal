@@ -549,6 +549,24 @@
     if (el) el.innerHTML = html || `<tr><td colspan="10" style="color:var(--muted);text-align:center;padding:16px;">No data</td></tr>`;
   }
 
+  async function handleAuthAwareError(res, errId, clearId) {
+    let e = {};
+    try { e = await res.json(); } catch (_) { e = {detail: res.statusText}; }
+
+    if (res.status === 401) {
+      const detail = (e && e.detail) ? String(e.detail) : "";
+      if (detail.toLowerCase().includes("login required")) {
+        const next = encodeURIComponent("/dashboard");
+        window.location.href = `/login?next=${next}`;
+        return true;
+      }
+    }
+
+    if (errId) showErr(errId, (e && e.detail) || res.statusText);
+    if (clearId) showErr(clearId, "");
+    return false;
+  }
+
   // ── BROKER INSIGHTS ──────────────────────────────────────────────────────
 
   const _brokerLocked = document.body.dataset.brokerLocked === "true";
@@ -575,9 +593,7 @@
     try {
       const res = await fetch(url, {credentials: "same-origin"});
       if (!res.ok) {
-        const e = await res.json().catch(()=>({detail: res.statusText}));
-        showErr("brokerErr", e.detail || res.statusText);
-        showErr("brokerMsg", "");
+        if (await handleAuthAwareError(res, "brokerErr", "brokerMsg")) return;
         return;
       }
       const d = await res.json();
@@ -649,7 +665,7 @@
     const qs = date ? `?business_date=${date}` : "";
     try {
       const res = await fetch(`${API}/insights/sectors/rotation${qs}`, {credentials:"same-origin"});
-      if (!res.ok) { showErr("sectorErr", (await res.json().catch(()=>({}))).detail || res.statusText); return; }
+      if (!res.ok) { if (await handleAuthAwareError(res, "sectorErr")) return; return; }
       const d = await res.json();
       const rows = d.data || [];
       document.getElementById("sectorMeta").textContent = `${d.business_date || ""}`;
@@ -670,7 +686,7 @@
     showErr("anomaliesErr", "");
     try {
       const res = await fetch(`${API}/anomalies/today?limit=50`, {credentials:"same-origin"});
-      if (!res.ok) { showErr("anomaliesErr", (await res.json().catch(()=>({}))).detail || res.statusText); return; }
+      if (!res.ok) { if (await handleAuthAwareError(res, "anomaliesErr")) return; return; }
       const d = await res.json();
       document.getElementById("anomaliesMeta").textContent = `${d.count || 0} anomalies · ${d.data?.[0]?.business_date || ""}`;
       setTbody("anomaliesToday", (d.data || []).map(a => `
@@ -690,7 +706,7 @@
     document.getElementById("topBrokersMetricCol").textContent = metric;
     try {
       const res = await fetch(`${API}/insights/brokers/top?metric=${metric}&limit=20`, {credentials:"same-origin"});
-      if (!res.ok) { showErr("topBrokersErr", (await res.json().catch(()=>({}))).detail || res.statusText); return; }
+      if (!res.ok) { if (await handleAuthAwareError(res, "topBrokersErr")) return; return; }
       const d = await res.json();
       setTbody("topBrokers", (d.data || []).map(r => `
         <tr>
@@ -708,7 +724,7 @@
     document.getElementById("topSymbolsMetricCol").textContent = metric;
     try {
       const res = await fetch(`${API}/insights/symbols/top?metric=${metric}&limit=20`, {credentials:"same-origin"});
-      if (!res.ok) { showErr("topSymbolsErr", (await res.json().catch(()=>({}))).detail || res.statusText); return; }
+      if (!res.ok) { if (await handleAuthAwareError(res, "topSymbolsErr")) return; return; }
       const d = await res.json();
       setTbody("topSymbols", (d.data || []).map(r => `
         <tr>
@@ -727,9 +743,7 @@
     try {
       const res = await fetch(`${API}/insights/market/hhi?days=7`, {credentials:"same-origin"});
       if (!res.ok) {
-        const e = await res.json().catch(()=>({detail: res.statusText}));
-        hhiErr.textContent = e.detail || res.statusText;
-        hhiErr.style.display = "block";
+        if (await handleAuthAwareError(res, "hhiErr")) return;
         return;
       }
       const d = await res.json();
@@ -807,7 +821,7 @@
     try {
       const res = await fetch(`${API}/insights/brokers/performance?metric=${metric}&limit=15`, {credentials:"same-origin"});
       if (!res.ok) {
-        showErr("perfErr", (await res.json().catch(()=>({}))).detail || res.statusText);
+        if (await handleAuthAwareError(res, "perfErr")) return;
         return;
       }
       

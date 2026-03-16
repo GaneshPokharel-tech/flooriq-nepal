@@ -85,6 +85,34 @@ def main() -> int:
         label="calculate broker performance",
     )
 
+    # 8) Model registry candidate seed (idempotent)
+    run(
+        [sys.executable, "scripts/register_model_candidate.py", "broker_isolation_forest"],
+        label="register broker isolation forest candidate",
+    )
+    run(
+        [sys.executable, "scripts/register_model_candidate.py", "broker_performance_advanced"],
+        label="register broker performance advanced candidate",
+    )
+    run(
+        [sys.executable, "scripts/register_model_candidate.py", "leader_follower_validation"],
+        label="register leader follower validation candidate",
+    )
+
+    # 9) Model lifecycle eligibility snapshot (no live model promotion yet)
+    run(
+        [sys.executable, "scripts/check_model_eligibility.py", "broker_isolation_forest", d, "refresh_pipeline"],
+        label="eligibility broker isolation forest",
+    )
+    run(
+        [sys.executable, "scripts/check_model_eligibility.py", "broker_performance_advanced", d, "refresh_pipeline"],
+        label="eligibility broker performance advanced",
+    )
+    run(
+        [sys.executable, "scripts/check_model_eligibility.py", "leader_follower_validation", d, "refresh_pipeline"],
+        label="eligibility leader follower validation",
+    )
+
     total_elapsed = time.time() - total_started
     print(f"[DONE] refresh complete for {d} in {total_elapsed:.2f}s", flush=True)
     return 0

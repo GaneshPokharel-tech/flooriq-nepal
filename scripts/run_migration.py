@@ -61,6 +61,10 @@ WHERE trial_end IS NULL AND subscription_end IS NULL;
 with get_conn() as conn:
     with conn.cursor() as cur:
         cur.execute(sql)
+
+        with open("scripts/create_model_registry_tables.sql", "r", encoding="utf-8") as f:
+            cur.execute(f.read())
+
     conn.commit()
 
 print("Migration complete!")
