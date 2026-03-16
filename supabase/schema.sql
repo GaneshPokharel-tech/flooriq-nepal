@@ -130,3 +130,57 @@ CREATE TABLE IF NOT EXISTS public.anomalies (
 CREATE INDEX IF NOT EXISTS idx_anomalies_date ON public.anomalies (business_date);
 CREATE INDEX IF NOT EXISTS idx_anomalies_entity ON public.anomalies (entity_type, entity_id);
 
+
+-- 6) BROKER SUBSCRIPTIONS / ACCESS CONTROL
+CREATE TABLE IF NOT EXISTS public.brokers_subscription (
+  broker_id         TEXT PRIMARY KEY,
+  trial_end         DATE,
+  subscription_end  DATE,
+  plan              TEXT NOT NULL DEFAULT 'trial',
+  is_active         BOOLEAN NOT NULL DEFAULT true,
+  email             TEXT,
+  phone             TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 7) PAYMENT REQUESTS
+CREATE TABLE IF NOT EXISTS public.payment_requests (
+  id                SERIAL PRIMARY KEY,
+  broker_id         TEXT NOT NULL,
+  amount            NUMERIC NOT NULL DEFAULT 0,
+  months            INTEGER NOT NULL DEFAULT 1,
+  bank_name         TEXT,
+  txn_reference     TEXT,
+  status            TEXT NOT NULL DEFAULT 'pending',
+  requested_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  reviewed_at       TIMESTAMPTZ,
+  reviewed_by       TEXT,
+  notes             TEXT
+);
+
+-- 8) ADMIN USERS
+CREATE TABLE IF NOT EXISTS public.admin_users (
+  id                SERIAL PRIMARY KEY,
+  username          TEXT UNIQUE NOT NULL,
+  password_hash     TEXT NOT NULL,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 9) PERSISTENT BROKER AUDIT LOG
+CREATE TABLE IF NOT EXISTS public.broker_audit_log (
+  id                BIGSERIAL PRIMARY KEY,
+  ts                TIMESTAMPTZ NOT NULL DEFAULT now(),
+  broker_id         TEXT NOT NULL,
+  action            TEXT NOT NULL,
+  method            TEXT,
+  path              TEXT,
+  rid               TEXT,
+  extra             JSONB,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_broker_audit_log_broker_ts
+  ON public.broker_audit_log (broker_id, ts DESC);
+
+CREATE INDEX IF NOT EXISTS idx_broker_audit_log_action_ts
+  ON public.broker_audit_log (action, ts DESC);
