@@ -85,10 +85,7 @@ def main():
                 DO UPDATE SET
                     model_family = EXCLUDED.model_family,
                     entity_scope = EXCLUDED.entity_scope,
-                    status = EXCLUDED.status,
                     min_history_days_required = EXCLUDED.min_history_days_required,
-                    training_params = EXCLUDED.training_params,
-                    notes = EXCLUDED.notes,
                     updated_at = NOW()
                 RETURNING id, model_name, model_version, status
                 """,
