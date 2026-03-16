@@ -36,7 +36,7 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
 .pill.approved{background:#00d08412;border:1px solid #00d08440;color:var(--green);}
 .pill.rejected{background:#ff4d4d12;border:1px solid #ff4d4d40;color:var(--red);}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:opacity .15s;}
-.btn:hover{opacity:.85;}.btn.approve{background:var(--green);color:#080c10;}.btn.reject{background:var(--red);color:#fff;}
+.btn:hover{opacity:.85;}.btn:disabled{opacity:.45;cursor:not-allowed;pointer-events:none;}.btn.approve{background:var(--green);color:#080c10;}.btn.reject{background:var(--red);color:#fff;}
 .btn.toggle-on{background:#3b82f620;border:1px solid #3b82f640;color:var(--blue);}
 .btn.toggle-off{background:#ff4d4d20;border:1px solid #ff4d4d40;color:var(--red);}
 .btn.extend{background:#f5a62320;border:1px solid #f5a62340;color:var(--amber);}
@@ -214,12 +214,13 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
   <div class="card">
     <div class="card-head">
       <h2>Model Lifecycle Registry</h2>
-      <div style="font-size:12px;color:var(--muted);">Read-only visibility for registered candidate/governed models</div>
+      <div style="font-size:12px;color:var(--muted);">Visibility plus guarded admin lifecycle actions for registered models</div>
     </div>
 
     {% if not model_lifecycle %}
       <div class="empty">No model lifecycle records found.</div>
     {% else %}
+      <div id="lifecycleMsg" style="display:none;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
       <div style="overflow-x:auto;">
         <table>
           <thead>
@@ -235,14 +236,19 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
               <th>Latest Run</th>
               <th>Triggered By</th>
               <th>Run Time</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {% for m in model_lifecycle %}
-            {% set lifecycle_class = 'pending' if m.status == 'candidate' else 'approved' if m.status in ['validated', 'promoted', 'active'] else 'inactive' if m.status in ['retired', 'archived'] else 'trial' %}
+            {% set lifecycle_class = 'pending' if m.status == 'candidate' else 'trial' if m.status == 'validated' else 'approved' if m.status == 'active' else 'inactive' if m.status in ['retired', 'rolled_back'] else 'rejected' if m.status == 'failed' else 'pending' %}
             {% set suff_class = 'approved' if m.data_sufficiency_passed else 'rejected' %}
             {% set quality_class = 'approved' if m.data_quality_passed else 'rejected' %}
             {% set latest_run_class = 'approved' if m.latest_run_status == 'succeeded' else 'rejected' if m.latest_run_status == 'failed' else 'pending' if m.latest_run_status in ['started', 'skipped'] else 'inactive' %}
+            {% set can_validate = m.status == 'candidate' and m.data_sufficiency_passed and m.data_quality_passed %}
+            {% set can_promote = m.status in ['validated', 'candidate'] and m.data_sufficiency_passed and m.data_quality_passed %}
+            {% set can_retire = m.status in ['candidate', 'validated', 'active'] %}
+            {% set can_rollback = m.data_sufficiency_passed and m.data_quality_passed %}
             <tr>
               <td>
                 <div style="font-weight:700;">{{ m.model_name }}</div>
@@ -279,6 +285,15 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
                 {% else %}
                   —
                 {% endif %}
+              </td>
+              <td>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;min-width:220px;">
+                  <button type="button" class="btn ghost" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "validate")' {% if not can_validate %}disabled{% endif %}>Validate</button>
+                  <button type="button" class="btn ghost" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "promote")' {% if not can_promote %}disabled{% endif %}>Promote</button>
+                  <button type="button" class="btn ghost" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "retire")' {% if not can_retire %}disabled{% endif %}>Retire</button>
+                  <button type="button" class="btn ghost" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "rollback")' {% if not can_rollback %}disabled{% endif %}>Rollback</button>
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-top:6px;">Server-side guardrails remain authoritative.</div>
               </td>
             </tr>
             {% endfor %}
@@ -643,11 +658,50 @@ async function loadAdminBroker() {
   } catch(e) { showErr("Error: " + e.message); }
 }
 
-function switchTab(name) {
+function switchTab(name, updateHash = true) {
   const names = ["analytics","lifecycle","payments","brokers","history","manage"];
   document.querySelectorAll(".tab").forEach((t,i) => t.classList.toggle("active", names[i] === name));
   document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
   document.getElementById("tab-" + name).classList.add("active");
+  if (updateHash) window.location.hash = "tab-" + name;
+}
+
+window.addEventListener("load", () => {
+  const m = window.location.hash.match(/^#tab-(analytics|lifecycle|payments|brokers|history|manage)$/);
+  if (m) switchTab(m[1], false);
+});
+
+async function runLifecycleAction(modelName, modelVersion, action) {
+  const msgEl = document.getElementById("lifecycleMsg");
+  const label = `${action.toUpperCase()} ${modelName} ${modelVersion}`;
+  if (!confirm(`Proceed with ${label}?`)) return;
+
+  msgEl.style.cssText = "display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;background:#3b82f612;border:1px solid #3b82f640;color:var(--blue);";
+  msgEl.textContent = `Running ${label}...`;
+
+  try {
+    const res = await fetch("/admin/panel/model-lifecycle/action", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        model_name: modelName,
+        model_version: modelVersion,
+        action,
+        notes: "Triggered from admin lifecycle UI",
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `Request failed (${res.status})`);
+
+    msgEl.style.cssText = "display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;background:#00d08412;border:1px solid #00d08440;color:var(--green);";
+    msgEl.textContent = `✅ ${action.toUpperCase()} succeeded for ${modelName} ${modelVersion}. Reloading...`;
+    window.location.hash = "tab-lifecycle";
+    window.location.reload();
+  } catch (e) {
+    msgEl.style.cssText = "display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;background:#ff4d4d12;border:1px solid #ff4d4d40;color:var(--red);";
+    msgEl.textContent = `Error: ${e.message}`;
+  }
 }
 
 
