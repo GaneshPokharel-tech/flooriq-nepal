@@ -281,9 +281,13 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
               <td style="font-size:12px;">{{ m.latest_run_triggered_by or '—' }}</td>
               <td style="font-size:12px;">
                 {% if m.latest_run_started_at %}
-                  <div>{{ m.latest_run_started_at }}</div>
+                  {% set started_display = (m.latest_run_started_at or '').replace('T', ' ') %}
+                  {% set started_tz = ' UTC' if started_display.endswith('+00:00') else ' NPT' if started_display.endswith('+05:45') else '' %}
+                  <div>{{ started_display[:16] ~ started_tz }}</div>
                   {% if m.latest_run_completed_at %}
-                  <div style="color:var(--muted);margin-top:4px;">done: {{ m.latest_run_completed_at }}</div>
+                  {% set completed_display = (m.latest_run_completed_at or '').replace('T', ' ') %}
+                  {% set completed_tz = ' UTC' if completed_display.endswith('+00:00') else ' NPT' if completed_display.endswith('+05:45') else '' %}
+                  <div style="color:var(--muted);margin-top:4px;">{{ 'done: ' ~ completed_display[:16] ~ completed_tz }}</div>
                   {% endif %}
                 {% else %}
                   —
