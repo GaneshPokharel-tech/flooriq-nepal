@@ -328,7 +328,7 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
             {% set promote_reason = 'Ready' if can_promote else 'Promote only from candidate or validated status' if m.status not in ['validated', 'candidate'] else 'Needs data sufficiency pass' if not m.data_sufficiency_passed else 'Needs data quality pass' if not m.data_quality_passed else 'Blocked by lifecycle guardrails' %}
             {% set retire_reason = 'Ready' if can_retire else 'Retire only from candidate, validated, or active status' if m.status not in ['candidate', 'validated', 'active'] else 'Cannot retire the sole registered version' if (m.registered_versions or 0) <= 1 else 'Blocked by lifecycle guardrails' %}
             {% set rollback_reason = 'Ready' if can_rollback else 'Needs data sufficiency pass' if not m.data_sufficiency_passed else 'Needs data quality pass' if not m.data_quality_passed else 'Needs another active version to roll back to' if (m.other_active_versions or 0) <= 0 else 'Blocked by lifecycle guardrails' %}
-            <tr>
+            <tr data-lifecycle-row="1" data-model-name="{{ m.model_name }}" data-model-version="{{ m.model_version }}">
               <td>
                 <div style="font-weight:700;">{{ m.model_name }}</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px;">{{ m.model_family }} · {{ m.entity_scope }}</div>
@@ -826,6 +826,17 @@ function setLifecycleMsg(kind, text) {
   msgEl.textContent = text;
 }
 
+function selectLifecycleRow(modelName, modelVersion) {
+  document.querySelectorAll('tr[data-lifecycle-row="1"]').forEach((row) => {
+    const isMatch =
+      row.dataset.modelName === modelName &&
+      row.dataset.modelVersion === modelVersion;
+
+    row.style.boxShadow = isMatch ? "inset 0 0 0 1px rgba(59,130,246,.55)" : "";
+    row.style.background = isMatch ? "rgba(59,130,246,.08)" : "";
+  });
+}
+
 function fillCreateVersionForm(modelName, baseVersion) {
   const modelNameEl = document.getElementById("createVersionModelName");
   const modelVersionEl = document.getElementById("createVersionModelVersion");
@@ -834,6 +845,7 @@ function fillCreateVersionForm(modelName, baseVersion) {
   modelVersionEl.value = "";
   modelVersionEl.placeholder = `Enter new version for ${baseVersion}`;
   modelVersionEl.focus();
+  selectLifecycleRow(modelName, baseVersion);
 
   setLifecycleMsg("info", `Filled create-version form for ${modelName}. Enter a new version manually.`);
 }
@@ -845,6 +857,7 @@ function fillTrainingResultForm(modelName, modelVersion) {
   modelNameEl.value = modelName;
   modelVersionEl.value = modelVersion;
   modelVersionEl.focus();
+  selectLifecycleRow(modelName, modelVersion);
   updateTrainingResultArtifactHint();
 
   setLifecycleMsg("info", `Filled training-result form for ${modelName} ${modelVersion}. Review values before submit.`);
