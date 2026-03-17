@@ -7,6 +7,11 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    import redis
+except Exception:
+    redis = None  # type: ignore
+
 DEFAULT_CSV = Path(os.environ.get("FLOORIQ_CSV_PATH", "data/raw/floorsheet_latest.csv"))
 
 BASELINE_MODEL_VERSIONS = {
@@ -36,6 +41,38 @@ def detect_business_date(csv_path: Path) -> str:
     df = pd.read_csv(csv_path, nrows=5)
     d = pd.to_datetime(df["businessDate"].iloc[0]).date().isoformat()
     return d
+
+
+def invalidate_refresh_caches() -> None:
+    url = (os.getenv("REDIS_URL") or "").strip()
+    if not url:
+        print("[INFO] REDIS_URL not set; skipping cache invalidation", flush=True)
+        return
+    if redis is None:
+        print("[INFO] redis package unavailable; skipping cache invalidation", flush=True)
+        return
+
+    client = None
+    try:
+        client = redis.Redis.from_url(url, decode_responses=True)
+        patterns = [
+            "flooriq:performance:broker:*:latest",
+            "flooriq:performance:rankings:*",
+        ]
+        deleted = 0
+        for pattern in patterns:
+            keys = list(client.scan_iter(match=pattern))
+            if keys:
+                deleted += int(client.delete(*keys) or 0)
+        print(f"[DONE] cache invalidation removed {deleted} keys", flush=True)
+    except Exception as e:
+        print(f"[WARN] cache invalidation skipped: {type(e).__name__}", flush=True)
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                pass
 
 
 def main() -> int:
@@ -154,6 +191,8 @@ def main() -> int:
         ],
         label="eligibility leader follower validation baseline candidate",
     )
+
+    invalidate_refresh_caches()
 
     total_elapsed = time.time() - total_started
     print(f"[DONE] refresh complete for {d} in {total_elapsed:.2f}s", flush=True)
