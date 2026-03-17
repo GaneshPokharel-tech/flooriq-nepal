@@ -1012,5 +1012,124 @@ async def broker_performance_rankings(
         "rankings": rankings
     }
     
+
+    await _cache_set(redis, cache_key, payload, ttl=300)
+    return payload
+
+
+@router.get("/insights/broker/{broker_id}/performance")
+async def broker_performance_snapshot(
+    broker_id: int,
+    conn: psycopg.Connection = Depends(db_conn),
+    redis=Depends(redis_client),
+    _=Depends(enforce_broker_access),
+):
+    """
+    Latest broker-specific performance snapshot from broker_performance_metrics.
+    Read-only, broker-scoped, analytics-only.
+    """
+    cache_key = f"flooriq:performance:broker:{broker_id}:latest"
+    cached = await _cache_get(redis, cache_key)
+    if cached is not None:
+        return cached
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT MAX(calculation_date) FROM public.broker_performance_metrics")
+        latest_date = cur.fetchone()[0]
+        if not latest_date:
+            raise HTTPException(status_code=404, detail="No performance data calculated yet")
+
+        cur.execute(
+            """
+            SELECT
+                broker_id,
+                calculation_date,
+                days_analyzed,
+                data_start_date,
+                data_end_date,
+                total_turnover,
+                avg_daily_turnover,
+                net_position_total,
+                avg_daily_net,
+                trading_days_active,
+                activity_rate,
+                buy_sell_ratio,
+                avg_trade_size,
+                symbol_diversification,
+                turnover_std_dev,
+                net_position_std_dev,
+                consistency_score,
+                sharpe_ratio,
+                win_rate,
+                profit_factor,
+                max_drawdown,
+                statistical_confidence,
+                p_value,
+                data_sufficient_basic,
+                data_sufficient_advanced
+            FROM public.broker_performance_metrics
+            WHERE calculation_date = %s
+              AND broker_id = %s
+            """,
+            (latest_date, broker_id),
+        )
+        row = cur.fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="No performance snapshot found for this broker.")
+
+    def conv(v):
+        try:
+            return float(v)
+        except Exception:
+            return v
+
+    payload = {
+        "disclaimer": DISCLAIMER,
+        "broker_id": int(row[0]),
+        "calculation_date": str(row[1]),
+        "snapshot": {
+            "broker_id": int(row[0]),
+            "calculation_date": str(row[1]),
+            "days_analyzed": int(row[2] or 0),
+            "data_start_date": str(row[3]) if row[3] is not None else None,
+            "data_end_date": str(row[4]) if row[4] is not None else None,
+            "total_turnover": conv(row[5]),
+            "avg_daily_turnover": conv(row[6]),
+            "net_position_total": conv(row[7]),
+            "avg_daily_net": conv(row[8]),
+            "trading_days_active": int(row[9] or 0),
+            "activity_rate": conv(row[10]),
+            "buy_sell_ratio": conv(row[11]),
+            "avg_trade_size": conv(row[12]),
+            "symbol_diversification": conv(row[13]),
+            "turnover_std_dev": conv(row[14]),
+            "net_position_std_dev": conv(row[15]),
+            "consistency_score": conv(row[16]),
+            "sharpe_ratio": conv(row[17]),
+            "win_rate": conv(row[18]),
+            "profit_factor": conv(row[19]),
+            "max_drawdown": conv(row[20]),
+            "statistical_confidence": conv(row[21]),
+            "p_value": conv(row[22]),
+            "data_sufficient_basic": bool(row[23]),
+            "data_sufficient_advanced": bool(row[24]),
+        },
+        "data_status": {
+            "days_available": int(row[2] or 0),
+            "basic_metrics_available": bool(row[23]),
+            "advanced_metrics_available": bool(row[24]),
+            "days_needed_for_basic": 9,
+            "days_needed_for_advanced": 20,
+            "message": (
+                "Advanced metrics enabled"
+                if bool(row[24])
+                else "Basic metrics available. Advanced analytics unlock at 20+ trading days."
+                if bool(row[23])
+                else "Insufficient history for broker performance analytics."
+            ),
+        },
+    }
+
     await _cache_set(redis, cache_key, payload, ttl=300)
     return payload

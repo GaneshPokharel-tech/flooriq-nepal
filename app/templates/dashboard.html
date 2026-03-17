@@ -288,6 +288,54 @@
         <div class="muted" id="brokerTrendMeta" style="margin-top:8px;"></div>
       </div>
 
+      <!-- Broker Performance Snapshot -->
+      <div class="card" style="margin-top:12px;background:var(--surface);">
+        <div class="card-head">
+          <h2>Broker Performance Snapshot</h2>
+          <span id="brokerPerfStatus" class="pill medium">—</span>
+        </div>
+
+        <div id="brokerPerfMsg" class="muted" style="margin-bottom:10px;">Performance analytics not loaded yet.</div>
+        <div id="brokerPerfErr" class="error" style="display:none;margin-bottom:10px;"></div>
+
+        <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
+          <div class="kpi">
+            <div class="k">Days Analyzed</div>
+            <div class="v" id="brokerPerfDays" style="font-size:15px;">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Avg Daily Turnover</div>
+            <div class="v" id="brokerPerfAvgTurnover" style="font-size:15px;">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Consistency Score</div>
+            <div class="v" id="brokerPerfConsistency" style="font-size:15px;">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Symbol Diversification</div>
+            <div class="v" id="brokerPerfDiversification" style="font-size:15px;">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Activity Rate</div>
+            <div class="v" id="brokerPerfActivityRate" style="font-size:15px;">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Buy/Sell Ratio</div>
+            <div class="v" id="brokerPerfBuySellRatio" style="font-size:15px;">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Sharpe Ratio</div>
+            <div class="v" id="brokerPerfSharpe" style="font-size:15px;">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Win Rate</div>
+            <div class="v" id="brokerPerfWinRate" style="font-size:15px;">—</div>
+          </div>
+        </div>
+
+        <div class="muted" id="brokerPerfMeta" style="margin-top:8px;"></div>
+      </div>
+
       <!-- Top Symbols + Anomalies -->
       <div class="split" style="margin-top:14px;">
         <div class="card" style="background:var(--surface);">
@@ -621,6 +669,7 @@
       showErr("brokerMsg", "");
       renderBroker(d);
       await loadBrokerTrend(bid, date);
+      await loadBrokerPerformance(bid);
     } catch(e) {
       showErr("brokerErr", "Network error: " + e.message);
       showErr("brokerMsg", "");
@@ -732,6 +781,44 @@
       `${payload?.days_returned || 0} business dates · latest ${payload?.latest_business_date || "—"} · previous ${payload?.previous_business_date || "—"} · net change vs previous: ${deltaText}`;
 
     renderBrokerTrendChart(trend);
+  }
+
+  async function loadBrokerPerformance(bid) {
+    showErr("brokerPerfErr", "");
+    const statusEl = document.getElementById("brokerPerfStatus");
+    const msgEl = document.getElementById("brokerPerfMsg");
+
+    try {
+      const res = await fetch(`${API}/insights/broker/${bid}/performance`, {credentials: "same-origin"});
+      if (!res.ok) {
+        if (await handleAuthAwareError(res, "brokerPerfErr")) return;
+        return;
+      }
+      const d = await res.json();
+      renderBrokerPerformance(d);
+      if (statusEl) statusEl.textContent = d?.data_status?.advanced_metrics_available ? "ADVANCED" : d?.data_status?.basic_metrics_available ? "BASIC" : "LIMITED";
+      if (statusEl) statusEl.className = `pill ${d?.data_status?.advanced_metrics_available ? "low" : d?.data_status?.basic_metrics_available ? "medium" : "high"}`;
+      if (msgEl) msgEl.textContent = d?.data_status?.message || "Performance analytics loaded.";
+    } catch (e) {
+      showErr("brokerPerfErr", "Performance unavailable: " + e.message);
+    }
+  }
+
+  function renderBrokerPerformance(payload) {
+    const s = payload?.snapshot || {};
+    const status = payload?.data_status || {};
+
+    setText("brokerPerfDays", s.days_analyzed ?? "—");
+    setText("brokerPerfAvgTurnover", s.avg_daily_turnover != null ? `₨ ${fmt(s.avg_daily_turnover)}` : "—");
+    setText("brokerPerfConsistency", s.consistency_score != null ? Number(s.consistency_score).toFixed(2) : "—");
+    setText("brokerPerfDiversification", s.symbol_diversification != null ? Number(s.symbol_diversification).toFixed(2) : "—");
+    setText("brokerPerfActivityRate", s.activity_rate != null ? `${(Number(s.activity_rate) * 100).toFixed(1)}%` : "—");
+    setText("brokerPerfBuySellRatio", s.buy_sell_ratio != null ? Number(s.buy_sell_ratio).toFixed(2) : "—");
+    setText("brokerPerfSharpe", status.advanced_metrics_available && s.sharpe_ratio != null ? Number(s.sharpe_ratio).toFixed(2) : "—");
+    setText("brokerPerfWinRate", status.advanced_metrics_available && s.win_rate != null ? `${(Number(s.win_rate) * 100).toFixed(1)}%` : "—");
+
+    document.getElementById("brokerPerfMeta").textContent =
+      `calculation date: ${payload?.calculation_date || "—"} · window: ${s.data_start_date || "—"} to ${s.data_end_date || "—"} · trading days active: ${s.trading_days_active ?? "—"}`;
   }
 
   function renderBrokerTrendChart(trend) {
@@ -990,12 +1077,21 @@
   document.getElementById("clearBrokerBtn")?.addEventListener("click", () => {
     ["brokerRisk","brokerHHI","brokerTop1","brokerNetAmount","brokerBuyAmount",
      "brokerSellAmount","brokerTradesBuy","brokerTradesSell",
-     "brokerTrendLatestDate","brokerTrendLatestNet","brokerTrendLatestTurnover","brokerTrendLatestSymbols"].forEach(id => setText(id, "—"));
+     "brokerTrendLatestDate","brokerTrendLatestNet","brokerTrendLatestTurnover","brokerTrendLatestSymbols",
+     "brokerPerfDays","brokerPerfAvgTurnover","brokerPerfConsistency","brokerPerfDiversification",
+     "brokerPerfActivityRate","brokerPerfBuySellRatio","brokerPerfSharpe","brokerPerfWinRate"].forEach(id => setText(id, "—"));
     ["brokerTopSymbols","brokerAnomalies","brokerSectorFlows","brokerTrendRows"].forEach(id => setTbody(id, ""));
     document.getElementById("brokerTrendMeta").textContent = "";
+    document.getElementById("brokerPerfMeta").textContent = "";
+    document.getElementById("brokerPerfMsg").textContent = "Performance analytics not loaded yet.";
+    const perfStatus = document.getElementById("brokerPerfStatus");
+    if (perfStatus) {
+      perfStatus.textContent = "—";
+      perfStatus.className = "pill medium";
+    }
     const trendSvg = document.getElementById("brokerTrendChart");
     if (trendSvg) trendSvg.innerHTML = "";
-    showErr("brokerErr",""); showErr("brokerMsg",""); showErr("brokerTrendErr","");
+    showErr("brokerErr",""); showErr("brokerMsg",""); showErr("brokerTrendErr",""); showErr("brokerPerfErr","");
   });
 
   document.getElementById("copyLinkBtn")?.addEventListener("click", () => {
