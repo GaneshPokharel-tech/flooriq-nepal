@@ -2,52 +2,11 @@ import json
 import sys
 
 from app.database import get_conn
-
-
-MODEL_SPECS = {
-    "broker_isolation_forest": {
-        "model_version": "candidate_v1",
-        "model_family": "anomaly_detection",
-        "entity_scope": "broker",
-        "status": "candidate",
-        "min_history_days_required": 20,
-        "training_params": {
-            "algorithm": "IsolationForest",
-            "n_estimators": 200,
-            "contamination": 0.1,
-            "random_state": 42,
-            "n_jobs": -1,
-            "current_mode": "daily_refit_heuristic",
-            "future_target": "versioned_lifecycle_managed_model"
-        },
-        "notes": "Candidate registry entry for future governed broker anomaly model."
-    },
-    "broker_performance_advanced": {
-        "model_version": "candidate_v1",
-        "model_family": "broker_performance",
-        "entity_scope": "broker",
-        "status": "candidate",
-        "min_history_days_required": 20,
-        "training_params": {
-            "mode": "historical_metrics",
-            "advanced_metrics": ["sharpe_ratio", "win_rate", "profit_factor", "max_drawdown", "p_value"],
-            "current_gate": "20_plus_days"
-        },
-        "notes": "Candidate registry entry for advanced broker performance analytics."
-    },
-    "leader_follower_validation": {
-        "model_version": "candidate_v1",
-        "model_family": "surveillance_validation",
-        "entity_scope": "broker_pair",
-        "status": "candidate",
-        "min_history_days_required": 30,
-        "training_params": {
-            "mode": "conservative_validation_gate",
-            "current_output": "candidate_patterns_only"
-        },
-        "notes": "Candidate registry entry for future formal leader-follower validation workflow."
-    },
-}
+from app.services.model_registry import (
+    ModelRegistrySpecError,
+    build_registry_payload,
+    get_model_spec,
+)
 
 
 def die(msg: str, code: int = 1):
@@ -57,14 +16,16 @@ def die(msg: str, code: int = 1):
 
 def main():
     if len(sys.argv) < 2:
-        die("Usage: PYTHONPATH=. python scripts/register_model_candidate.py MODEL_NAME")
+        die("Usage: PYTHONPATH=. python scripts/register_model_candidate.py MODEL_NAME [MODEL_VERSION]")
 
     model_name = sys.argv[1].strip()
 
-    if model_name not in MODEL_SPECS:
-        die(f"Unknown model_name '{model_name}'. Allowed: {', '.join(MODEL_SPECS)}")
-
-    spec = MODEL_SPECS[model_name]
+    try:
+        base_spec = get_model_spec(model_name)
+        model_version = sys.argv[2].strip() if len(sys.argv) >= 3 else base_spec["model_version"]
+        payload = build_registry_payload(model_name, model_version)
+    except ModelRegistrySpecError as e:
+        die(str(e))
 
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -77,10 +38,12 @@ def main():
                     entity_scope,
                     status,
                     min_history_days_required,
+                    validation_metrics,
                     training_params,
+                    artifact_uri,
                     notes
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s)
                 ON CONFLICT (model_name, model_version)
                 DO UPDATE SET
                     model_family = EXCLUDED.model_family,
@@ -90,14 +53,16 @@ def main():
                 RETURNING id, model_name, model_version, status
                 """,
                 (
-                    model_name,
-                    spec["model_version"],
-                    spec["model_family"],
-                    spec["entity_scope"],
-                    spec["status"],
-                    spec["min_history_days_required"],
-                    json.dumps(spec["training_params"]),
-                    spec["notes"],
+                    payload["model_name"],
+                    payload["model_version"],
+                    payload["model_family"],
+                    payload["entity_scope"],
+                    payload["status"],
+                    payload["min_history_days_required"],
+                    json.dumps(payload["validation_metrics"]),
+                    json.dumps(payload["training_params"]),
+                    payload["artifact_uri"],
+                    payload["notes"],
                 ),
             )
             row = cur.fetchone()

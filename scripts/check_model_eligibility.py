@@ -3,27 +3,17 @@ import sys
 from datetime import datetime, UTC
 
 from app.database import get_conn
+from app.services.model_registry import (
+    ModelRegistrySpecError,
+    get_model_spec,
+    validate_model_version,
+)
 
 
-MODEL_RULES = {
-    "broker_isolation_forest": {
-        "model_family": "anomaly_detection",
-        "entity_scope": "broker",
-        "min_history_days_required": 20,
-        "notes": "Future versioned replacement for daily-refit IsolationForest heuristic.",
-    },
-    "broker_performance_advanced": {
-        "model_family": "broker_performance",
-        "entity_scope": "broker",
-        "min_history_days_required": 20,
-        "notes": "Advanced broker performance metrics require sufficient historical depth.",
-    },
-    "leader_follower_validation": {
-        "model_family": "surveillance_validation",
-        "entity_scope": "broker_pair",
-        "min_history_days_required": 30,
-        "notes": "Formal leader-follower validation should not run before deeper history is available.",
-    },
+MODEL_NOTES = {
+    "broker_isolation_forest": "Future versioned replacement for daily-refit IsolationForest heuristic.",
+    "broker_performance_advanced": "Advanced broker performance metrics require sufficient historical depth.",
+    "leader_follower_validation": "Formal leader-follower validation should not run before deeper history is available.",
 }
 
 
@@ -34,16 +24,29 @@ def die(msg: str, code: int = 1):
 
 def main():
     if len(sys.argv) < 3:
-        die("Usage: PYTHONPATH=. python scripts/check_model_eligibility.py MODEL_NAME YYYY-MM-DD [TRIGGERED_BY]")
+        die(
+            "Usage: PYTHONPATH=. python scripts/check_model_eligibility.py "
+            "MODEL_NAME YYYY-MM-DD [TRIGGERED_BY] [MODEL_VERSION]"
+        )
 
     model_name = sys.argv[1].strip()
     as_of_date = sys.argv[2].strip()
     triggered_by = sys.argv[3].strip() if len(sys.argv) >= 4 else "manual"
 
-    if model_name not in MODEL_RULES:
-        die(f"Unknown model_name '{model_name}'. Allowed: {', '.join(MODEL_RULES)}")
+    try:
+        spec = get_model_spec(model_name)
+        target_model_version = (
+            validate_model_version(sys.argv[4]) if len(sys.argv) >= 5 else spec["model_version"]
+        )
+    except ModelRegistrySpecError as e:
+        die(str(e))
 
-    rule = MODEL_RULES[model_name]
+    rule = {
+        "model_family": spec["model_family"],
+        "entity_scope": spec["entity_scope"],
+        "min_history_days_required": spec["min_history_days_required"],
+        "notes": MODEL_NOTES.get(model_name, spec["notes"]),
+    }
 
     with get_conn() as conn:
         with conn.cursor() as cur:
@@ -52,20 +55,17 @@ def main():
                 SELECT id
                 FROM public.model_registry
                 WHERE model_name = %s
-                ORDER BY
-                  CASE status
-                    WHEN 'active' THEN 1
-                    WHEN 'validated' THEN 2
-                    WHEN 'candidate' THEN 3
-                    ELSE 9
-                  END,
-                  created_at DESC
-                LIMIT 1
+                  AND model_version = %s
                 """,
-                (model_name,),
+                (model_name, target_model_version),
             )
             reg = cur.fetchone()
-            model_registry_id = reg[0] if reg else None
+            if not reg:
+                die(
+                    f"Target model version not found in model_registry: "
+                    f"{model_name} {target_model_version}"
+                )
+            model_registry_id = reg[0]
 
             cur.execute(
                 """
@@ -121,6 +121,7 @@ def main():
             summary = {
                 "as_of_date": as_of_date,
                 "model_name": model_name,
+                "target_model_version": target_model_version,
                 "model_family": rule["model_family"],
                 "entity_scope": rule["entity_scope"],
                 "min_history_days_required": rule["min_history_days_required"],
@@ -132,7 +133,9 @@ def main():
                 "triggered_by": triggered_by,
             }
 
-            intended_version = f"{as_of_date.replace('-', '')}_eligibility_check"
+            intended_version = (
+                f"{target_model_version}__{as_of_date.replace('-', '')}_eligibility_check"
+            )
 
             cur.execute(
                 """
@@ -177,6 +180,7 @@ def main():
 
     print("=" * 72)
     print(f"MODEL ELIGIBILITY CHECK: {model_name}")
+    print(f"target_model_version: {target_model_version}")
     print(f"as_of_date: {as_of_date}")
     print(f"history_days_available: {actual_history_days}")
     print(f"min_history_days_required: {rule['min_history_days_required']}")

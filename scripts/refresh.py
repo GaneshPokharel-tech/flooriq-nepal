@@ -9,6 +9,12 @@ import pandas as pd
 
 DEFAULT_CSV = Path(os.environ.get("FLOORIQ_CSV_PATH", "data/raw/floorsheet_latest.csv"))
 
+BASELINE_MODEL_VERSIONS = {
+    "broker_isolation_forest": "candidate_v1",
+    "broker_performance_advanced": "candidate_v1",
+    "leader_follower_validation": "candidate_v1",
+}
+
 
 def run(cmd: list[str], label: str | None = None) -> None:
     label = label or " ".join(cmd)
@@ -85,32 +91,68 @@ def main() -> int:
         label="calculate broker performance",
     )
 
-    # 8) Model registry candidate seed (idempotent)
+    # 8) Baseline model registry seed (idempotent, explicit versioned baseline)
     run(
-        [sys.executable, "scripts/register_model_candidate.py", "broker_isolation_forest"],
-        label="register broker isolation forest candidate",
+        [
+            sys.executable,
+            "scripts/register_model_candidate.py",
+            "broker_isolation_forest",
+            BASELINE_MODEL_VERSIONS["broker_isolation_forest"],
+        ],
+        label="register broker isolation forest baseline candidate",
     )
     run(
-        [sys.executable, "scripts/register_model_candidate.py", "broker_performance_advanced"],
-        label="register broker performance advanced candidate",
+        [
+            sys.executable,
+            "scripts/register_model_candidate.py",
+            "broker_performance_advanced",
+            BASELINE_MODEL_VERSIONS["broker_performance_advanced"],
+        ],
+        label="register broker performance advanced baseline candidate",
     )
     run(
-        [sys.executable, "scripts/register_model_candidate.py", "leader_follower_validation"],
-        label="register leader follower validation candidate",
+        [
+            sys.executable,
+            "scripts/register_model_candidate.py",
+            "leader_follower_validation",
+            BASELINE_MODEL_VERSIONS["leader_follower_validation"],
+        ],
+        label="register leader follower validation baseline candidate",
     )
 
-    # 9) Model lifecycle eligibility snapshot (no live model promotion yet)
+    # 9) Baseline lifecycle eligibility snapshot (no live model promotion yet)
     run(
-        [sys.executable, "scripts/check_model_eligibility.py", "broker_isolation_forest", d, "refresh_pipeline"],
-        label="eligibility broker isolation forest",
+        [
+            sys.executable,
+            "scripts/check_model_eligibility.py",
+            "broker_isolation_forest",
+            d,
+            "refresh_pipeline",
+            BASELINE_MODEL_VERSIONS["broker_isolation_forest"],
+        ],
+        label="eligibility broker isolation forest baseline candidate",
     )
     run(
-        [sys.executable, "scripts/check_model_eligibility.py", "broker_performance_advanced", d, "refresh_pipeline"],
-        label="eligibility broker performance advanced",
+        [
+            sys.executable,
+            "scripts/check_model_eligibility.py",
+            "broker_performance_advanced",
+            d,
+            "refresh_pipeline",
+            BASELINE_MODEL_VERSIONS["broker_performance_advanced"],
+        ],
+        label="eligibility broker performance advanced baseline candidate",
     )
     run(
-        [sys.executable, "scripts/check_model_eligibility.py", "leader_follower_validation", d, "refresh_pipeline"],
-        label="eligibility leader follower validation",
+        [
+            sys.executable,
+            "scripts/check_model_eligibility.py",
+            "leader_follower_validation",
+            d,
+            "refresh_pipeline",
+            BASELINE_MODEL_VERSIONS["leader_follower_validation"],
+        ],
+        label="eligibility leader follower validation baseline candidate",
     )
 
     total_elapsed = time.time() - total_started

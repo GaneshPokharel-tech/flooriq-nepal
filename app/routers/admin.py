@@ -305,7 +305,7 @@ async def panel_dashboard(request: Request, admin: str = Depends(require_panel_a
                 ORDER BY tr.started_at DESC, tr.id DESC
                 LIMIT 1
             ) lr ON TRUE
-            ORDER BY mr.model_name ASC, mr.model_version DESC
+            ORDER BY mr.model_name ASC, mr.created_at DESC, mr.id DESC
         """)
         lifecycle_cols = [
             "id",
