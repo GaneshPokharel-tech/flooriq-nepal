@@ -13,6 +13,11 @@ from app.config import Settings
 from app.dependencies import db_conn, redis_client
 from app.broker_auth import hash_password, set_broker_config, sign_admin_session, admin_cookie_name
 from app.services.model_lifecycle import ModelLifecycleError, perform_model_status_action
+from app.services.model_training_registry import (
+    ModelTrainingRegistryError,
+    create_model_version,
+    record_model_training_result,
+)
 
 router = APIRouter(tags=["admin"])
 templates = Jinja2Templates(directory="app/templates")
@@ -458,6 +463,95 @@ async def panel_model_lifecycle_action(
         "run_id": result.run_id,
         "run_status": result.run_status,
     }
+
+
+@router.post("/admin/panel/model-lifecycle/create-version")
+async def panel_model_lifecycle_create_version(
+    request: Request,
+    admin: str = Depends(require_panel_admin),
+    conn: psycopg.Connection = Depends(db_conn),
+):
+    payload = await request.json()
+    model_name = (payload.get("model_name") or "").strip()
+    model_version = (payload.get("model_version") or "").strip()
+    notes = (payload.get("notes") or "").strip()
+
+    try:
+        result = create_model_version(
+            conn,
+            model_name=model_name,
+            model_version=model_version,
+            triggered_by=f"admin_panel:{admin}",
+            notes=notes,
+        )
+    except ModelTrainingRegistryError as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {
+        "ok": True,
+        "model_registry_id": result.model_registry_id,
+        "model_name": result.model_name,
+        "model_version": result.model_version,
+        "status": result.status,
+        "run_id": result.run_id,
+        "previous_latest_version": result.previous_latest_version,
+        "previous_latest_status": result.previous_latest_status,
+        "registered_versions_before": result.registered_versions_before,
+        "registered_versions_after": result.registered_versions_after,
+    }
+
+
+@router.post("/admin/panel/model-lifecycle/record-training-result")
+async def panel_model_lifecycle_record_training_result(
+    request: Request,
+    admin: str = Depends(require_panel_admin),
+    conn: psycopg.Connection = Depends(db_conn),
+):
+    payload = await request.json()
+    model_name = (payload.get("model_name") or "").strip()
+    model_version = (payload.get("model_version") or "").strip()
+    run_status = (payload.get("run_status") or "").strip().lower()
+    artifact_uri = (payload.get("artifact_uri") or "").strip()
+    validation_metrics = payload.get("validation_metrics") or {}
+    notes = (payload.get("notes") or "").strip()
+
+    if not isinstance(validation_metrics, dict):
+        raise HTTPException(status_code=400, detail="validation_metrics must be a JSON object")
+
+    try:
+        result = record_model_training_result(
+            conn,
+            model_name=model_name,
+            model_version=model_version,
+            run_status=run_status,
+            artifact_uri=artifact_uri,
+            validation_metrics=validation_metrics,
+            triggered_by=f"admin_panel:{admin}",
+            notes=notes,
+        )
+    except ModelTrainingRegistryError as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return {
+        "ok": True,
+        "model_registry_id": result.model_registry_id,
+        "model_name": result.model_name,
+        "model_version": result.model_version,
+        "current_registry_status": result.current_registry_status,
+        "run_id": result.run_id,
+        "run_status": result.run_status,
+        "artifact_uri": result.artifact_uri,
+        "validation_metrics_keys": result.validation_metrics_keys,
+    }
+
 
 
 @router.get("/admin/debug-broker/{broker_id}")
