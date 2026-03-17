@@ -220,10 +220,74 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
       <div style="font-size:12px;color:var(--muted);">Visibility plus guarded admin lifecycle actions for registered models</div>
     </div>
 
+    <div id="lifecycleMsg" style="display:none;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
+
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(280px,1fr));gap:12px;margin-bottom:14px;">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
+          <div class="section-label">Version Ops</div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Create model version</div>
+          <div style="display:grid;gap:10px;">
+            <div>
+              <label for="createVersionModelName" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">Model name</label>
+              <input type="text" id="createVersionModelName" placeholder="e.g. broker_anomaly_iforest" />
+            </div>
+            <div>
+              <label for="createVersionModelVersion" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">New model version</label>
+              <input type="text" id="createVersionModelVersion" placeholder="e.g. candidate_v2" />
+            </div>
+            <div>
+              <label for="createVersionNotes" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">Notes</label>
+              <textarea id="createVersionNotes" rows="3" placeholder="Optional operational notes"></textarea>
+            </div>
+            <div>
+              <button type="button" class="btn ghost" onclick="createLifecycleVersion()">Create version</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
+          <div class="section-label">Version Ops</div>
+          <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Record training result</div>
+          <div style="display:grid;gap:10px;">
+            <div>
+              <label for="trainingResultModelName" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">Model name</label>
+              <input type="text" id="trainingResultModelName" placeholder="e.g. broker_anomaly_iforest" />
+            </div>
+            <div>
+              <label for="trainingResultModelVersion" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">Model version</label>
+              <input type="text" id="trainingResultModelVersion" placeholder="e.g. candidate_v2" />
+            </div>
+            <div>
+              <label for="trainingResultStatus" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">Run status</label>
+              <select id="trainingResultStatus">
+                <option value="started">started</option>
+                <option value="skipped">skipped</option>
+                <option value="failed">failed</option>
+                <option value="succeeded">succeeded</option>
+              </select>
+            </div>
+            <div>
+              <label for="trainingResultArtifactUri" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">Artifact URI</label>
+              <input type="text" id="trainingResultArtifactUri" placeholder="Required when run status is succeeded" />
+            </div>
+            <div>
+              <label for="trainingResultMetrics" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">Validation metrics JSON</label>
+              <textarea id="trainingResultMetrics" rows="4" placeholder='{"auc": 0.81, "precision_at_10": 0.4}'></textarea>
+            </div>
+            <div>
+              <label for="trainingResultNotes" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">Notes</label>
+              <textarea id="trainingResultNotes" rows="3" placeholder="Optional operational notes"></textarea>
+            </div>
+            <div>
+              <button type="button" class="btn ghost" onclick="recordLifecycleTrainingResult()">Record training result</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     {% if not model_lifecycle %}
       <div class="empty">No model lifecycle records found.</div>
     {% else %}
-      <div id="lifecycleMsg" style="display:none;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
       <div style="overflow-x:auto;">
         <table>
           <thead>
@@ -686,24 +750,33 @@ window.addEventListener("load", () => {
   if (m) switchTab(m[1], false);
 });
 
-async function runLifecycleAction(modelName, modelVersion, action) {
+function setLifecycleMsg(kind, text) {
   const msgEl = document.getElementById("lifecycleMsg");
+  const styles = {
+    info: "display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;background:#3b82f612;border:1px solid #3b82f640;color:var(--blue);",
+    success: "display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;background:#00d08412;border:1px solid #00d08440;color:var(--green);",
+    warn: "display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;background:#f5a62312;border:1px solid #f5a62340;color:var(--amber);",
+    error: "display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;background:#ff4d4d12;border:1px solid #ff4d4d40;color:var(--red);",
+  };
+  msgEl.style.cssText = styles[kind] || styles.info;
+  msgEl.textContent = text;
+}
+
+async function runLifecycleAction(modelName, modelVersion, action) {
   const actionUpper = action.toUpperCase();
   const label = `${actionUpper} ${modelName} ${modelVersion}`;
 
   if (action === "retire" || action === "rollback") {
     const typed = prompt(`Destructive action: ${label}\n\nType ${actionUpper} to continue.`);
     if (typed !== actionUpper) {
-      msgEl.style.cssText = "display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;background:#f5a62312;border:1px solid #f5a62340;color:var(--amber);";
-      msgEl.textContent = `${actionUpper} cancelled. Confirmation text did not match.`;
+      setLifecycleMsg("warn", `${actionUpper} cancelled. Confirmation text did not match.`);
       return;
     }
   } else {
     if (!confirm(`Proceed with ${label}?`)) return;
   }
 
-  msgEl.style.cssText = "display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;background:#3b82f612;border:1px solid #3b82f640;color:var(--blue);";
-  msgEl.textContent = `Running ${label}...`;
+  setLifecycleMsg("info", `Running ${label}...`);
 
   try {
     const res = await fetch("/admin/panel/model-lifecycle/action", {
@@ -720,16 +793,106 @@ async function runLifecycleAction(modelName, modelVersion, action) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || `Request failed (${res.status})`);
 
-    msgEl.style.cssText = "display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;background:#00d08412;border:1px solid #00d08440;color:var(--green);";
-    msgEl.textContent = `✅ ${action.toUpperCase()} succeeded for ${modelName} ${modelVersion}. Reloading...`;
+    setLifecycleMsg("success", `✅ ${action.toUpperCase()} succeeded for ${modelName} ${modelVersion}. Reloading...`);
     window.location.hash = "tab-lifecycle";
     window.location.reload();
   } catch (e) {
-    msgEl.style.cssText = "display:block;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;background:#ff4d4d12;border:1px solid #ff4d4d40;color:var(--red);";
-    msgEl.textContent = `Error: ${e.message}`;
+    setLifecycleMsg("error", `Error: ${e.message}`);
   }
 }
 
+async function createLifecycleVersion() {
+  const modelName = document.getElementById("createVersionModelName").value.trim();
+  const modelVersion = document.getElementById("createVersionModelVersion").value.trim();
+  const notes = document.getElementById("createVersionNotes").value.trim();
+
+  if (!modelName || !modelVersion) {
+    setLifecycleMsg("error", "Model name and new model version are required.");
+    return;
+  }
+
+  setLifecycleMsg("info", `Creating version ${modelVersion} for ${modelName}...`);
+
+  try {
+    const res = await fetch("/admin/panel/model-lifecycle/create-version", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        model_name: modelName,
+        model_version: modelVersion,
+        notes,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `Request failed (${res.status})`);
+
+    setLifecycleMsg("success", `✅ Created version ${data.model_version} for ${data.model_name}. Reloading...`);
+    window.location.hash = "tab-lifecycle";
+    window.location.reload();
+  } catch (e) {
+    setLifecycleMsg("error", `Error: ${e.message}`);
+  }
+}
+
+async function recordLifecycleTrainingResult() {
+  const modelName = document.getElementById("trainingResultModelName").value.trim();
+  const modelVersion = document.getElementById("trainingResultModelVersion").value.trim();
+  const runStatus = document.getElementById("trainingResultStatus").value.trim().toLowerCase();
+  const artifactUri = document.getElementById("trainingResultArtifactUri").value.trim();
+  const metricsText = document.getElementById("trainingResultMetrics").value.trim();
+  const notes = document.getElementById("trainingResultNotes").value.trim();
+
+  if (!modelName || !modelVersion || !runStatus) {
+    setLifecycleMsg("error", "Model name, model version, and run status are required.");
+    return;
+  }
+
+  if (runStatus === "succeeded" && !artifactUri) {
+    setLifecycleMsg("error", "Artifact URI is required when run status is succeeded.");
+    return;
+  }
+
+  let validationMetrics = {};
+  if (metricsText) {
+    try {
+      validationMetrics = JSON.parse(metricsText);
+    } catch (e) {
+      setLifecycleMsg("error", "Validation metrics JSON is invalid.");
+      return;
+    }
+    if (!validationMetrics || Array.isArray(validationMetrics) || typeof validationMetrics !== "object") {
+      setLifecycleMsg("error", "Validation metrics JSON must be an object.");
+      return;
+    }
+  }
+
+  setLifecycleMsg("info", `Recording ${runStatus} training result for ${modelName} ${modelVersion}...`);
+
+  try {
+    const res = await fetch("/admin/panel/model-lifecycle/record-training-result", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        model_name: modelName,
+        model_version: modelVersion,
+        run_status: runStatus,
+        artifact_uri: artifactUri,
+        validation_metrics: validationMetrics,
+        notes,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `Request failed (${res.status})`);
+
+    setLifecycleMsg("success", `✅ Recorded ${data.run_status} training result for ${data.model_name} ${data.model_version}. Reloading...`);
+    window.location.hash = "tab-lifecycle";
+    window.location.reload();
+  } catch (e) {
+    setLifecycleMsg("error", `Error: ${e.message}`);
+  }
+}
 
 async function saveBroker() {
   const bid = document.getElementById("mBrokerId").value.trim();
