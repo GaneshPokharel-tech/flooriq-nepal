@@ -326,9 +326,29 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
                 <div style="font-size:11px;color:var(--muted);margin-top:4px;">
                   {{ 'artifact: ready' if m.artifact_uri else 'artifact: missing' }}
                 </div>
+                {% if m.artifact_uri %}
+                <div style="font-size:11px;color:var(--muted);margin-top:2px;" title="{{ m.artifact_uri }}">
+                  uri: {{ m.artifact_uri[:42] ~ ('…' if (m.artifact_uri|length) > 42 else '') }}
+                </div>
+                {% endif %}
                 <div style="font-size:11px;color:var(--muted);margin-top:2px;">
                   metrics: {{ (m.validation_metrics or {})|length }}
                 </div>
+                {% if m.validation_metrics %}
+                <details style="margin-top:6px;">
+                  <summary style="cursor:pointer;font-size:11px;color:var(--muted);">metric preview</summary>
+                  <div style="margin-top:6px;font-size:11px;line-height:1.45;">
+                    {% for metric_name, metric_value in (m.validation_metrics or {})|dictsort %}
+                      {% if loop.index <= 4 %}
+                      <div><span style="color:var(--muted);">{{ metric_name }}</span>: {{ metric_value }}</div>
+                      {% endif %}
+                    {% endfor %}
+                    {% if (m.validation_metrics or {})|length > 4 %}
+                    <div style="color:var(--muted);margin-top:4px;">+ {{ ((m.validation_metrics or {})|length) - 4 }} more</div>
+                    {% endif %}
+                  </div>
+                </details>
+                {% endif %}
               </td>
               <td><span class="pill {{ lifecycle_class }}">{{ (m.status or 'unknown').upper() }}</span></td>
               <td>{{ m.entity_scope }}</td>
