@@ -355,31 +355,44 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
               <td class="mono">{{ m.actual_history_days_used or 0 }} / {{ m.min_history_days_required or '—' }}</td>
               <td><span class="pill {{ suff_class }}">{{ 'PASS' if m.data_sufficiency_passed else 'FAIL' }}</span></td>
               <td><span class="pill {{ quality_class }}">{{ 'PASS' if m.data_quality_passed else 'FAIL' }}</span></td>
-              <td style="font-size:12px;">
+              <td style="font-size:12px;line-height:1.45;">
                 {% if m.training_window_start or m.training_window_end %}
-                  {{ m.training_window_start or '—' }} → {{ m.training_window_end or '—' }}
+                  <div><span style="color:var(--muted);">from</span> {{ m.training_window_start or '—' }}</div>
+                  <div style="margin-top:4px;"><span style="color:var(--muted);">to</span> {{ m.training_window_end or '—' }}</div>
                 {% else %}
                   —
                 {% endif %}
               </td>
-              <td>
+              <td style="font-size:12px;line-height:1.45;">
                 {% if m.latest_run_status %}
                   <div><span class="pill {{ latest_run_class }}">{{ m.latest_run_status.upper() }}</span></div>
-                  <div style="font-size:11px;color:var(--muted);margin-top:4px;">{{ m.latest_run_type or '—' }}{% if m.latest_run_id %} · #{{ m.latest_run_id }}{% endif %}</div>
+                  <div style="font-size:11px;color:var(--muted);margin-top:6px;">type</div>
+                  <div class="mono" style="margin-top:2px;">{{ m.latest_run_type or '—' }}</div>
+                  <div style="font-size:11px;color:var(--muted);margin-top:6px;">run id</div>
+                  <div class="mono" style="margin-top:2px;">{{ ('#' ~ m.latest_run_id) if m.latest_run_id else '—' }}</div>
                 {% else %}
                   <span style="font-size:12px;color:var(--muted);">No runs</span>
                 {% endif %}
               </td>
-              <td style="font-size:12px;">{{ m.latest_run_triggered_by or '—' }}</td>
-              <td style="font-size:12px;">
+              <td style="font-size:12px;line-height:1.45;">
+                {% if m.latest_run_triggered_by %}
+                  <div style="font-size:11px;color:var(--muted);">source</div>
+                  <div class="mono" style="margin-top:2px;word-break:break-word;">{{ m.latest_run_triggered_by }}</div>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td style="font-size:12px;line-height:1.45;">
                 {% if m.latest_run_started_at %}
                   {% set started_display = (m.latest_run_started_at or '').replace('T', ' ') %}
                   {% set started_tz = ' UTC' if started_display.endswith('+00:00') else ' NPT' if started_display.endswith('+05:45') else '' %}
-                  <div>{{ started_display[:16] ~ started_tz }}</div>
+                  <div style="font-size:11px;color:var(--muted);">started</div>
+                  <div class="mono" style="margin-top:2px;">{{ started_display[:16] ~ started_tz }}</div>
                   {% if m.latest_run_completed_at %}
                   {% set completed_display = (m.latest_run_completed_at or '').replace('T', ' ') %}
                   {% set completed_tz = ' UTC' if completed_display.endswith('+00:00') else ' NPT' if completed_display.endswith('+05:45') else '' %}
-                  <div style="color:var(--muted);margin-top:4px;">{{ 'done: ' ~ completed_display[:16] ~ completed_tz }}</div>
+                  <div style="font-size:11px;color:var(--muted);margin-top:6px;">completed</div>
+                  <div class="mono" style="margin-top:2px;">{{ completed_display[:16] ~ completed_tz }}</div>
                   {% endif %}
                 {% else %}
                   —
