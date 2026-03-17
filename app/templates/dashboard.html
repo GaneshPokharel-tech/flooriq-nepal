@@ -244,6 +244,50 @@
         </div>
       </div>
 
+      <!-- Broker Activity Trend -->
+      <div class="card" style="margin-top:14px;background:var(--surface);">
+        <div class="card-head">
+          <h2>Broker Activity Trend</h2>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="muted" style="font-size:11px;">Window</span>
+            <select id="brokerTrendDays" style="min-width:96px;padding:7px 10px;font-size:12px;">
+              <option value="7">7D</option>
+              <option value="30" selected>30D</option>
+              <option value="90">90D</option>
+            </select>
+          </div>
+        </div>
+
+        <svg id="brokerTrendChart" viewBox="0 0 520 110" width="100%" height="110" fill="none" style="display:block;"></svg>
+
+        <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-top:12px;">
+          <div class="kpi">
+            <div class="k">Latest Date</div>
+            <div class="v" id="brokerTrendLatestDate" style="font-size:15px;">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Latest Net</div>
+            <div class="v" id="brokerTrendLatestNet" style="font-size:15px;">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Latest Turnover</div>
+            <div class="v" id="brokerTrendLatestTurnover" style="font-size:15px;">—</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Symbols (Buy/Sell)</div>
+            <div class="v" id="brokerTrendLatestSymbols" style="font-size:15px;">—</div>
+          </div>
+        </div>
+
+        <div id="brokerTrendErr" class="error" style="display:none;margin-top:12px;"></div>
+
+        <table style="margin-top:12px;">
+          <thead><tr><th>Date</th><th>Buy</th><th>Sell</th><th>Net</th><th>Symbols</th></tr></thead>
+          <tbody id="brokerTrendRows"></tbody>
+        </table>
+        <div class="muted" id="brokerTrendMeta" style="margin-top:8px;"></div>
+      </div>
+
       <!-- Top Symbols + Anomalies -->
       <div class="split" style="margin-top:14px;">
         <div class="card" style="background:var(--surface);">
@@ -576,9 +620,32 @@
       const d = await res.json();
       showErr("brokerMsg", "");
       renderBroker(d);
+      await loadBrokerTrend(bid, date);
     } catch(e) {
       showErr("brokerErr", "Network error: " + e.message);
       showErr("brokerMsg", "");
+    }
+  }
+
+  async function loadBrokerTrend(bid, date) {
+    showErr("brokerTrendErr", "");
+    const days = (document.getElementById("brokerTrendDays")?.value || "30").trim();
+    const params = new URLSearchParams();
+    if (date) params.set("business_date", date);
+    if (days) params.set("days", days);
+
+    const trendUrl = `${API}/insights/broker/${bid}/trend?${params.toString()}`;
+
+    try {
+      const res = await fetch(trendUrl, {credentials: "same-origin"});
+      if (!res.ok) {
+        if (await handleAuthAwareError(res, "brokerTrendErr")) return;
+        return;
+      }
+      const d = await res.json();
+      renderBrokerTrend(d);
+    } catch (e) {
+      showErr("brokerTrendErr", "Trend unavailable: " + e.message);
     }
   }
 
@@ -632,6 +699,74 @@
         <td style="color:${dcolor};">${delta >= 0 ? "+" : ""}${fmt(delta)}</td>
       </tr>`;
     }).join(""));
+  }
+
+  function renderBrokerTrend(payload) {
+    const trend = payload?.trend || [];
+    const latest = payload?.latest_snapshot || null;
+    const previous = payload?.previous_snapshot || null;
+
+    setText("brokerTrendLatestDate", latest?.business_date || "—");
+    setText("brokerTrendLatestNet", latest ? `₨ ${fmt(latest.net_amount)}` : "—");
+    setText("brokerTrendLatestTurnover", latest ? `₨ ${fmt((Number(latest.total_buy_amount || 0) + Number(latest.total_sell_amount || 0)))}` : "—");
+    setText("brokerTrendLatestSymbols", latest ? `${latest.unique_symbols_buy ?? 0}/${latest.unique_symbols_sell ?? 0}` : "—");
+
+    const recentRows = [...trend].reverse().slice(0, 10);
+    setTbody("brokerTrendRows", recentRows.map(r => {
+      const net = Number(r.net_amount || 0);
+      const netColor = net >= 0 ? "var(--green)" : "var(--red)";
+      return `<tr>
+        <td class="mono">${r.business_date}</td>
+        <td>₨ ${fmt(r.total_buy_amount)}</td>
+        <td>₨ ${fmt(r.total_sell_amount)}</td>
+        <td style="color:${netColor};">₨ ${fmt(r.net_amount)}</td>
+        <td>${r.unique_symbols_buy ?? 0}/${r.unique_symbols_sell ?? 0}</td>
+      </tr>`;
+    }).join(""));
+
+    const deltaNet = latest && previous
+      ? Number(latest.net_amount || 0) - Number(previous.net_amount || 0)
+      : null;
+    const deltaText = deltaNet == null ? "—" : `${deltaNet >= 0 ? "+" : ""}${fmt(deltaNet)}`;
+    document.getElementById("brokerTrendMeta").textContent =
+      `${payload?.days_returned || 0} business dates · latest ${payload?.latest_business_date || "—"} · previous ${payload?.previous_business_date || "—"} · net change vs previous: ${deltaText}`;
+
+    renderBrokerTrendChart(trend);
+  }
+
+  function renderBrokerTrendChart(trend) {
+    const svg = document.getElementById("brokerTrendChart");
+    if (!svg) return;
+
+    if (!trend || trend.length === 0) {
+      svg.innerHTML = `<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="var(--muted)" font-size="12">No trend data</text>`;
+      return;
+    }
+
+    const width = 520;
+    const height = 110;
+    const paddingX = 10;
+    const paddingY = 10;
+    const values = trend.map((r) => Number(r.net_amount || 0));
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+    const range = (maxVal - minVal) || 1;
+    const denom = Math.max(trend.length - 1, 1);
+
+    const points = trend.map((r, i) => {
+      const x = paddingX + (i / denom) * (width - paddingX * 2);
+      const y = height - paddingY - ((Number(r.net_amount || 0) - minVal) / range) * (height - paddingY * 2);
+      return `${x},${y}`;
+    });
+
+    const pathData = `M ${points.join(" L ")}`;
+    const stroke = Number(trend[trend.length - 1]?.net_amount || 0) >= 0 ? "#00d084" : "#ff4d4d";
+    const last = points[points.length - 1].split(",");
+
+    svg.innerHTML = `
+      <path d="${pathData}" stroke="${stroke}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+      <circle cx="${last[0]}" cy="${last[1]}" r="3" fill="${stroke}"></circle>
+    `;
   }
 
   // ── SECTOR ROTATION ──────────────────────────────────────────────────────
@@ -847,19 +982,20 @@
   // ── BUTTON WIRING ────────────────────────────────────────────────────────
 
   document.getElementById("loadBrokerBtn")?.addEventListener("click", loadBroker);
+  document.getElementById("brokerTrendDays")?.addEventListener("change", () => {
+    const bid = brokerSelect ? brokerSelect.value : "";
+    if (bid) loadBroker();
+  });
 
   document.getElementById("clearBrokerBtn")?.addEventListener("click", () => {
     ["brokerRisk","brokerHHI","brokerTop1","brokerNetAmount","brokerBuyAmount",
-     "brokerSellAmount","brokerTradesBuy","brokerTradesSell"].forEach(id => setText(id, "—"));
-    ["brokerTopSymbols","brokerAnomalies","brokerSectorFlows"].forEach(id => setTbody(id, ""));
-    showErr("brokerErr",""); showErr("brokerMsg","");
-  });
-
-  document.getElementById("refreshDataBtn")?.addEventListener("click", async () => {
-    try {
-      await fetch(`${API}/admin/refresh`, {method:"POST", credentials:"same-origin"});
-      loadBroker();
-    } catch(e) { showErr("brokerErr", "Refresh failed: " + e.message); }
+     "brokerSellAmount","brokerTradesBuy","brokerTradesSell",
+     "brokerTrendLatestDate","brokerTrendLatestNet","brokerTrendLatestTurnover","brokerTrendLatestSymbols"].forEach(id => setText(id, "—"));
+    ["brokerTopSymbols","brokerAnomalies","brokerSectorFlows","brokerTrendRows"].forEach(id => setTbody(id, ""));
+    document.getElementById("brokerTrendMeta").textContent = "";
+    const trendSvg = document.getElementById("brokerTrendChart");
+    if (trendSvg) trendSvg.innerHTML = "";
+    showErr("brokerErr",""); showErr("brokerMsg",""); showErr("brokerTrendErr","");
   });
 
   document.getElementById("copyLinkBtn")?.addEventListener("click", () => {

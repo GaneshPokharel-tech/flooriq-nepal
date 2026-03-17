@@ -337,6 +337,123 @@ async def broker_insights(
     return payload
 
 
+@router.get("/insights/broker/{broker_id}/trend")
+async def broker_trend(
+    broker_id: int,
+    business_date: Optional[str] = None,
+    days: int = 30,
+    conn: psycopg.Connection = Depends(db_conn),
+    redis=Depends(redis_client),
+    _=Depends(enforce_broker_access),
+):
+    """
+    Broker historical trend from precomputed broker_daily_features.
+    Read-only, broker-scoped, analytics-only.
+    """
+    if days < 2:
+        days = 2
+    if days > 180:
+        days = 180
+
+    cache_key = f"flooriq:insights:broker:{broker_id}:trend:{business_date or 'latest'}:days:{days}"
+    cached = await _cache_get(redis, cache_key)
+    if cached is not None:
+        return cached
+
+    def fnum(v):
+        try:
+            return float(v)
+        except Exception:
+            return v
+
+    with conn.cursor() as cur:
+        if business_date is None:
+            cur.execute("SELECT MAX(business_date) FROM public.broker_daily_features")
+            business_date = cur.fetchone()[0]
+            if business_date is None:
+                raise HTTPException(status_code=404, detail="No broker features found yet.")
+
+        cur.execute(
+            """
+            SELECT DISTINCT business_date
+            FROM public.broker_daily_features
+            WHERE broker_id = %s
+              AND business_date <= %s
+            ORDER BY business_date DESC
+            LIMIT %s
+            """,
+            (broker_id, business_date, days),
+        )
+        date_rows = cur.fetchall()
+        if not date_rows:
+            raise HTTPException(status_code=404, detail="No broker trend data found.")
+
+        trend_dates = [r[0] for r in date_rows]
+        trend_dates.reverse()
+
+        cur.execute(
+            """
+            SELECT
+              business_date,
+              broker_id,
+              total_buy_amount,
+              total_sell_amount,
+              net_amount,
+              trades_buy_count,
+              trades_sell_count,
+              unique_symbols_buy,
+              unique_symbols_sell,
+              total_buy_qty,
+              total_sell_qty,
+              net_qty,
+              updated_at
+            FROM public.broker_daily_features
+            WHERE broker_id = %s
+              AND business_date = ANY(%s)
+            ORDER BY business_date ASC
+            """,
+            (broker_id, trend_dates),
+        )
+        rows = cur.fetchall()
+
+    trend = []
+    for row in rows:
+        trend.append(
+            {
+                "business_date": str(row[0]),
+                "broker_id": int(row[1]),
+                "total_buy_amount": fnum(row[2]),
+                "total_sell_amount": fnum(row[3]),
+                "net_amount": fnum(row[4]),
+                "trades_buy_count": int(row[5] or 0),
+                "trades_sell_count": int(row[6] or 0),
+                "unique_symbols_buy": int(row[7] or 0),
+                "unique_symbols_sell": int(row[8] or 0),
+                "total_buy_qty": int(row[9] or 0),
+                "total_sell_qty": int(row[10] or 0),
+                "net_qty": int(row[11] or 0),
+                "updated_at": str(row[12]) if row[12] is not None else None,
+            }
+        )
+
+    latest = trend[-1] if trend else None
+    previous = trend[-2] if len(trend) > 1 else None
+
+    payload = {
+        "disclaimer": DISCLAIMER,
+        "broker_id": broker_id,
+        "business_date": str(business_date),
+        "days_requested": days,
+        "days_returned": len(trend),
+        "latest_business_date": latest["business_date"] if latest else None,
+        "previous_business_date": previous["business_date"] if previous else None,
+        "latest_snapshot": latest,
+        "previous_snapshot": previous,
+        "trend": trend,
+    }
+    await _cache_set(redis, cache_key, payload)
+    return payload
+
 
 
 @router.get("/insights/symbol/{symbol}")
