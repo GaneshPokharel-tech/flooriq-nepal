@@ -71,37 +71,33 @@ def _anomaly_details_summary(label, details) -> str:
     if label == "Round-trip activity pattern":
         sym = d.get("symbol") or "-"
         cp = d.get("counterparty") or "-"
-        risk = d.get("risk_band") or "-"
         hp = d.get("historical_pair_days", 0)
         hc = d.get("heuristic_components") or {}
         lag = hc.get("time_delta_minutes", "-")
         px = hc.get("price_deviation_pct", "-")
-        return f"Symbol: {sym} | Counterparty: Broker {cp} | Risk: {risk} | Lag(min): {lag} | Px dev%: {px} | Historical pair days: {hp}"
+        return f"Symbol: {sym} | Counterparty: Broker {cp} | Time gap (min): {lag} | Price deviation: {px}% | Prior linked days: {hp}"
 
     if label == "Self-match activity pattern":
         sym = d.get("symbol") or "-"
-        risk = d.get("risk_band") or "-"
         hc = d.get("heuristic_components") or {}
         cnt = hc.get("self_trade_count", "-")
         amt = hc.get("total_self_amount")
         amt_txt = _fmt(amt) if amt is not None else "-"
-        return f"Symbol: {sym} | Risk: {risk} | Self trades: {cnt} | Total amount: {amt_txt}"
+        return f"Symbol: {sym} | Self trades: {cnt} | Total amount: {amt_txt}"
 
     if label == "Circular flow activity pattern":
         pattern = d.get("pattern") or "-"
         flow = d.get("total_circular_flow")
         flow_txt = _fmt(flow) if flow is not None else "-"
-        return f"Flow pattern: {pattern} | Circular flow: {flow_txt}"
+        return f"Circular path: {pattern} | Total circular flow: {flow_txt}"
 
     if label == "Counterparty concentration pattern":
         cp = d.get("counterparty") or "-"
         share = d.get("share")
-        turnover = d.get("broker_turnover")
         linked = d.get("with_counterparty_amount")
         share_txt = f"{float(share) * 100:.2f}%" if share is not None else "-"
-        turnover_txt = _fmt(turnover) if turnover is not None else "-"
         linked_txt = _fmt(linked) if linked is not None else "-"
-        return f"Counterparty: Broker {cp} | Share: {share_txt} | Broker turnover: {turnover_txt} | Linked amount: {linked_txt}"
+        return f"Counterparty: Broker {cp} | Share: {share_txt} | Linked amount: {linked_txt}"
 
     if label == "Net amount spike":
         z = d.get("z")
@@ -115,7 +111,7 @@ def _anomaly_details_summary(label, details) -> str:
         total_amount = d.get("total_amount")
         z_txt = f"{float(z):.2f}" if z is not None else "-"
         amt_txt = _fmt(total_amount) if total_amount is not None else "-"
-        return f"Z-score: {z_txt} | Total amount: {amt_txt}"
+        return f"Z-score: {z_txt} | Turnover amount: {amt_txt}"
 
     if label == "Unusual activity pattern":
         parts = []
@@ -535,7 +531,7 @@ async def broker_report_pdf(
             pdf.ln()
 
     # ── ANOMALIES ─────────────────────────────────────────────────────────────
-    pdf.section_title("Anomaly Detection Flags")
+    pdf.section_title("Flagged Activity Patterns")
 
     if not arows:
         y = pdf.get_y()
@@ -544,7 +540,7 @@ async def broker_report_pdf(
         pdf.set_xy(13, y)
         pdf.set_text_color(*C_GREEN)
         pdf.set_font("Helvetica", "B", 9)
-        pdf.cell(0, 8, _pdf_safe("No anomalies detected for this date."))
+        pdf.cell(0, 8, _pdf_safe("No flagged activity patterns for this date."))
         pdf.ln()
     else:
         for label, score, details in arows:
