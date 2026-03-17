@@ -157,7 +157,7 @@
       <div class="broker-chip">Broker <span class="bid">{{ session_broker_id }}</span></div>
       <a class="btnlink" href="/logout">Logout</a>
     {% endif %}
-    <div class="live-badge"><div class="live-dot"></div>Live Data</div>
+    <div class="live-badge"><div class="live-dot"></div>Latest Available Data</div>
   </div>
 </div>
 
@@ -200,7 +200,6 @@
           <input id="brokerDate" type="text" placeholder="YYYY-MM-DD (empty = latest)"/>
         </div>
         <button id="loadBrokerBtn">Load</button>
-        <button id="refreshDataBtn" class="secondary">Refresh</button>
         <button id="copyLinkBtn" class="secondary">Copy Link</button>
         <button id="downloadPdfBtn" class="secondary">PDF</button>
         <button id="clearBrokerBtn" class="secondary">Clear</button>
@@ -454,30 +453,8 @@
     </aside>
   </div>
 
-  <p class="muted" style="margin-top:16px;">Lightweight demo UI — data cached on API side (Redis when enabled).</p>
+  <p class="muted" style="margin-top:16px;">Broker intelligence surface powered by processed NEPSE floorsheet analytics. Data reflects the latest available processed business date.</p>
 </main>
-
-<!-- ═══ TICKER ═══ -->
-<div class="ticker-wrap">
-  <div class="ticker">
-    <span class="tick-item">NABIL <span class="up">▲ 1,420</span> +2.1%</span>
-    <span class="tick-item">NICA <span class="dn">▼ 890</span> -0.8%</span>
-    <span class="tick-item">SCB <span class="up">▲ 2,100</span> +1.4%</span>
-    <span class="tick-item">GBBL <span class="up">▲ 340</span> +3.2%</span>
-    <span class="tick-item">HIDCL <span class="dn">▼ 174</span> -1.1%</span>
-    <span class="tick-item">NTC <span class="up">▲ 870</span> +0.6%</span>
-    <span class="tick-item">ADBL <span class="dn">▼ 512</span> -2.3%</span>
-    <span class="tick-item">PRVU <span class="up">▲ 1,200</span> +1.8%</span>
-    <span class="tick-item">NABIL <span class="up">▲ 1,420</span> +2.1%</span>
-    <span class="tick-item">NICA <span class="dn">▼ 890</span> -0.8%</span>
-    <span class="tick-item">SCB <span class="up">▲ 2,100</span> +1.4%</span>
-    <span class="tick-item">GBBL <span class="up">▲ 340</span> +3.2%</span>
-    <span class="tick-item">HIDCL <span class="dn">▼ 174</span> -1.1%</span>
-    <span class="tick-item">NTC <span class="up">▲ 870</span> +0.6%</span>
-    <span class="tick-item">ADBL <span class="dn">▼ 512</span> -2.3%</span>
-    <span class="tick-item">PRVU <span class="up">▲ 1,200</span> +1.8%</span>
-  </div>
-</div>
 
 <script>
   window.FLOORIQ_API_BASE = window.FLOORIQ_API_BASE || "";
