@@ -460,7 +460,7 @@ async def broker_report_pdf(
         pdf.kv_row(k, v, shade=(i % 2 == 0))
 
     # ── TOP SYMBOLS ───────────────────────────────────────────────────────────
-    pdf.section_title("Top Symbols (Buy Side)")
+    pdf.section_title("Top Symbols (Buy)")
 
     if not top_symbols:
         pdf.set_text_color(*C_MUTED)
@@ -503,7 +503,7 @@ async def broker_report_pdf(
 
     # ── SECTOR FLOWS ──────────────────────────────────────────────────────────
     if sector_rows:
-        pdf.section_title("Sector Flows")
+        pdf.section_title("Sector Flows (Broker)")
         y = pdf.get_y()
         pdf.set_fill_color(*C_BG)
         pdf.rect(10, y, 190, 7, "F")
