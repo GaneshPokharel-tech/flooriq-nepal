@@ -1006,7 +1006,7 @@ async def broker_performance_rankings(
             "basic_metrics_available": has_basic,
             "advanced_metrics_available": has_advanced,
             "days_needed_for_advanced": 20,
-            "message": "⚠️ Insufficient data for advanced metrics" if not has_advanced else "Advanced metrics enabled"
+            "message": "Basic metrics available. Advanced metrics unlock at 20+ trading days." if not has_advanced else "Advanced metrics enabled"
         },
         "count": len(rankings),
         "rankings": rankings
@@ -1124,9 +1124,9 @@ async def broker_performance_snapshot(
             "message": (
                 "Advanced metrics enabled"
                 if bool(row[24])
-                else "Basic metrics available. Advanced analytics unlock at 20+ trading days."
+                else "Basic metrics available. Advanced metrics unlock at 20+ trading days."
                 if bool(row[23])
-                else "Insufficient history for broker performance analytics."
+                else "Limited history. More trading days are needed for fuller performance analytics."
             ),
         },
     }

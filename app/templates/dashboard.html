@@ -295,7 +295,7 @@
           <span id="brokerPerfStatus" class="pill medium">—</span>
         </div>
 
-        <div id="brokerPerfMsg" class="muted" style="margin-bottom:10px;">Performance analytics not loaded yet.</div>
+        <div id="brokerPerfMsg" class="muted" style="margin-bottom:10px;">Performance analytics load after broker data is fetched.</div>
         <div id="brokerPerfErr" class="error" style="display:none;margin-bottom:10px;"></div>
 
         <div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));">
@@ -308,15 +308,15 @@
             <div class="v" id="brokerPerfAvgTurnover" style="font-size:15px;">—</div>
           </div>
           <div class="kpi">
-            <div class="k">Consistency Score</div>
+            <div class="k">Turnover Consistency</div>
             <div class="v" id="brokerPerfConsistency" style="font-size:15px;">—</div>
           </div>
           <div class="kpi">
-            <div class="k">Symbol Diversification</div>
+            <div class="k">Avg Distinct Symbols/Day</div>
             <div class="v" id="brokerPerfDiversification" style="font-size:15px;">—</div>
           </div>
           <div class="kpi">
-            <div class="k">Activity Rate</div>
+            <div class="k">Market-Day Activity Rate</div>
             <div class="v" id="brokerPerfActivityRate" style="font-size:15px;">—</div>
           </div>
           <div class="kpi">
@@ -798,7 +798,7 @@
       renderBrokerPerformance(d);
       if (statusEl) statusEl.textContent = d?.data_status?.advanced_metrics_available ? "ADVANCED" : d?.data_status?.basic_metrics_available ? "BASIC" : "LIMITED";
       if (statusEl) statusEl.className = `pill ${d?.data_status?.advanced_metrics_available ? "low" : d?.data_status?.basic_metrics_available ? "medium" : "high"}`;
-      if (msgEl) msgEl.textContent = d?.data_status?.message || "Performance analytics loaded.";
+      if (msgEl) msgEl.textContent = d?.data_status?.message || "Latest broker performance snapshot loaded.";
     } catch (e) {
       showErr("brokerPerfErr", "Performance unavailable: " + e.message);
     }
@@ -818,7 +818,7 @@
     setText("brokerPerfWinRate", status.advanced_metrics_available && s.win_rate != null ? `${(Number(s.win_rate) * 100).toFixed(1)}%` : "—");
 
     document.getElementById("brokerPerfMeta").textContent =
-      `calculation date: ${payload?.calculation_date || "—"} · window: ${s.data_start_date || "—"} to ${s.data_end_date || "—"} · trading days active: ${s.trading_days_active ?? "—"}`;
+      `calculation date: ${payload?.calculation_date || "—"} · window: ${s.data_start_date || "—"} to ${s.data_end_date || "—"} · active trading days: ${s.trading_days_active ?? "—"}`;
   }
 
   function renderBrokerTrendChart(trend) {
@@ -1083,7 +1083,7 @@
     ["brokerTopSymbols","brokerAnomalies","brokerSectorFlows","brokerTrendRows"].forEach(id => setTbody(id, ""));
     document.getElementById("brokerTrendMeta").textContent = "";
     document.getElementById("brokerPerfMeta").textContent = "";
-    document.getElementById("brokerPerfMsg").textContent = "Performance analytics not loaded yet.";
+    document.getElementById("brokerPerfMsg").textContent = "Performance analytics load after broker data is fetched.";
     const perfStatus = document.getElementById("brokerPerfStatus");
     if (perfStatus) {
       perfStatus.textContent = "—";

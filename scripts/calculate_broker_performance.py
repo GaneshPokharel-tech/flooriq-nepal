@@ -50,14 +50,14 @@ def calculate_sharpe_ratio(daily_returns, risk_free_rate=0.0):
 
 
 def calculate_win_rate(daily_net_positions):
-    """Win rate: % of days with positive net position"""
+    """Win rate as 0-1 fraction of days with positive net position"""
     if not daily_net_positions:
         return None
     
     positive_days = sum(1 for net in daily_net_positions if net > 0)
-    win_rate = (positive_days / len(daily_net_positions)) * 100
+    win_rate = positive_days / len(daily_net_positions)
     
-    return round(win_rate, 2)
+    return round(win_rate, 4)
 
 
 def calculate_max_drawdown(cumulative_net):
@@ -113,7 +113,8 @@ def calculate_broker_metrics(cur, broker_id, as_of_date):
             total_buy_amount,
             total_sell_amount,
             net_amount,
-            unique_symbols_buy + unique_symbols_sell as total_symbols,
+            unique_symbols_buy,
+            unique_symbols_sell,
             trades_buy_count + trades_sell_count as total_trades
         FROM public.broker_daily_features
         WHERE broker_id = %s
@@ -130,6 +131,28 @@ def calculate_broker_metrics(cur, broker_id, as_of_date):
     data_start = rows[0][0]
     data_end = rows[-1][0]
     
+    # Exact distinct symbol coverage by day from trades
+    cur.execute("""
+        SELECT
+            business_date,
+            COUNT(DISTINCT stock_symbol) AS distinct_symbols
+        FROM public.trades
+        WHERE business_date BETWEEN %s AND %s
+          AND (buyer_member_id = %s OR seller_member_id = %s)
+        GROUP BY business_date
+        ORDER BY business_date
+    """, (data_start, data_end, str(broker_id), str(broker_id)))
+    symbol_rows = cur.fetchall()
+    symbol_count_by_date = {bd: int(cnt or 0) for bd, cnt in symbol_rows}
+    
+    # Market trading days in this analysis window
+    cur.execute("""
+        SELECT COUNT(DISTINCT business_date)
+        FROM public.broker_daily_features
+        WHERE business_date BETWEEN %s AND %s
+    """, (data_start, data_end))
+    market_days_in_window = int(cur.fetchone()[0] or 0)
+    
     # Extract time series
     daily_turnover = []
     daily_net = []
@@ -138,13 +161,17 @@ def calculate_broker_metrics(cur, broker_id, as_of_date):
     cumulative_net = []
     running_total = 0
     
-    for bd, buy_amt, sell_amt, net_amt, symbols, trades in rows:
+    for bd, buy_amt, sell_amt, net_amt, unique_symbols_buy, unique_symbols_sell, trades in rows:
         turnover = float(buy_amt or 0) + float(sell_amt or 0)
         net = float(net_amt or 0)
+        exact_symbol_count = symbol_count_by_date.get(
+            bd,
+            max(int(unique_symbols_buy or 0), int(unique_symbols_sell or 0))
+        )
         
         daily_turnover.append(turnover)
         daily_net.append(net)
-        daily_symbols.append(int(symbols or 0))
+        daily_symbols.append(exact_symbol_count)
         daily_trades.append(int(trades or 0))
         
         running_total += net
@@ -156,8 +183,8 @@ def calculate_broker_metrics(cur, broker_id, as_of_date):
     net_position_total = sum(daily_net)
     avg_daily_net = statistics.mean(daily_net) if daily_net else 0
     
-    trading_days_active = days_analyzed
-    activity_rate = 1.0  # They traded every day in our data
+    trading_days_active = len(symbol_count_by_date)
+    activity_rate = (trading_days_active / market_days_in_window) if market_days_in_window > 0 else None
     
     # Buy/Sell ratio
     total_buy = sum(float(r[1] or 0) for r in rows)
@@ -174,7 +201,7 @@ def calculate_broker_metrics(cur, broker_id, as_of_date):
     # Consistency metrics
     turnover_std = statistics.stdev(daily_turnover) if len(daily_turnover) >= 2 else None
     net_std = statistics.stdev(daily_net) if len(daily_net) >= 2 else None
-    consistency_score = calculate_consistency_score(daily_net)
+    consistency_score = calculate_consistency_score(daily_turnover)
     
     # Data sufficiency flags
     data_sufficient_basic = days_analyzed >= 9
@@ -229,7 +256,7 @@ def calculate_broker_metrics(cur, broker_id, as_of_date):
         'net_position_total': round(net_position_total, 2),
         'avg_daily_net': round(avg_daily_net, 2),
         'trading_days_active': trading_days_active,
-        'activity_rate': round(activity_rate, 4),
+        'activity_rate': round(activity_rate, 4) if activity_rate is not None else None,
         'buy_sell_ratio': round(buy_sell_ratio, 4) if buy_sell_ratio else None,
         'avg_trade_size': round(avg_trade_size, 2) if avg_trade_size else None,
         'symbol_diversification': round(symbol_diversification, 2),
