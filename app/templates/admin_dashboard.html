@@ -226,6 +226,7 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
           <div class="section-label">Version Ops</div>
           <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Create model version</div>
+          <div style="font-size:11px;color:var(--muted);margin:-4px 0 10px;">Use a lifecycle row helper to fill the model name. Enter the new version manually.</div>
           <div style="display:grid;gap:10px;">
             <div>
               <label for="createVersionModelName" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">Model name</label>
@@ -248,6 +249,7 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">
           <div class="section-label">Version Ops</div>
           <div style="font-size:13px;font-weight:700;margin-bottom:10px;">Record training result</div>
+          <div style="font-size:11px;color:var(--muted);margin:-4px 0 10px;">Use a lifecycle row helper to fill the model name and version. Review all values before submit.</div>
           <div style="display:grid;gap:10px;">
             <div>
               <label for="trainingResultModelName" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">Model name</label>
@@ -412,6 +414,10 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
                   <button type="button" class="btn ghost" title="{{ rollback_reason }}" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "rollback")' {% if not can_rollback %}disabled{% endif %}>Rollback</button>
                 </div>
                 <div class="lifecycle-guard-note">
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+                    <button type="button" class="btn ghost" style="padding:4px 8px;font-size:10px;" onclick='fillCreateVersionForm({{ m.model_name|tojson }}, {{ m.model_version|tojson }})'>Use in create-version</button>
+                    <button type="button" class="btn ghost" style="padding:4px 8px;font-size:10px;" onclick='fillTrainingResultForm({{ m.model_name|tojson }}, {{ m.model_version|tojson }})'>Use in training-result</button>
+                  </div>
                   Retire / Rollback require typed confirmation. Server-side guardrails remain authoritative.
                   {% if not can_validate or not can_promote or not can_retire or not can_rollback %}
                   <details style="margin-top:6px;">
@@ -812,6 +818,29 @@ function setLifecycleMsg(kind, text) {
   };
   msgEl.style.cssText = styles[kind] || styles.info;
   msgEl.textContent = text;
+}
+
+function fillCreateVersionForm(modelName, baseVersion) {
+  const modelNameEl = document.getElementById("createVersionModelName");
+  const modelVersionEl = document.getElementById("createVersionModelVersion");
+
+  modelNameEl.value = modelName;
+  modelVersionEl.value = "";
+  modelVersionEl.placeholder = `Enter new version for ${baseVersion}`;
+  modelVersionEl.focus();
+
+  setLifecycleMsg("info", `Filled create-version form for ${modelName}. Enter a new version manually.`);
+}
+
+function fillTrainingResultForm(modelName, modelVersion) {
+  const modelNameEl = document.getElementById("trainingResultModelName");
+  const modelVersionEl = document.getElementById("trainingResultModelVersion");
+
+  modelNameEl.value = modelName;
+  modelVersionEl.value = modelVersion;
+  modelVersionEl.focus();
+
+  setLifecycleMsg("info", `Filled training-result form for ${modelName} ${modelVersion}. Review values before submit.`);
 }
 
 async function runLifecycleAction(modelName, modelVersion, action) {
