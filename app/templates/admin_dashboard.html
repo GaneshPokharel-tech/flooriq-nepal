@@ -316,6 +316,10 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
             {% set can_promote = m.status in ['validated', 'candidate'] and m.data_sufficiency_passed and m.data_quality_passed %}
             {% set can_retire = m.status in ['candidate', 'validated', 'active'] and (m.registered_versions or 0) > 1 %}
             {% set can_rollback = m.data_sufficiency_passed and m.data_quality_passed and (m.other_active_versions or 0) > 0 %}
+            {% set validate_reason = 'Ready' if can_validate else 'Validate only from candidate status' if m.status != 'candidate' else 'Needs data sufficiency pass' if not m.data_sufficiency_passed else 'Needs data quality pass' if not m.data_quality_passed else 'Blocked by lifecycle guardrails' %}
+            {% set promote_reason = 'Ready' if can_promote else 'Promote only from candidate or validated status' if m.status not in ['validated', 'candidate'] else 'Needs data sufficiency pass' if not m.data_sufficiency_passed else 'Needs data quality pass' if not m.data_quality_passed else 'Blocked by lifecycle guardrails' %}
+            {% set retire_reason = 'Ready' if can_retire else 'Retire only from candidate, validated, or active status' if m.status not in ['candidate', 'validated', 'active'] else 'Cannot retire the sole registered version' if (m.registered_versions or 0) <= 1 else 'Blocked by lifecycle guardrails' %}
+            {% set rollback_reason = 'Ready' if can_rollback else 'Needs data sufficiency pass' if not m.data_sufficiency_passed else 'Needs data quality pass' if not m.data_quality_passed else 'Needs another active version to roll back to' if (m.other_active_versions or 0) <= 0 else 'Blocked by lifecycle guardrails' %}
             <tr>
               <td>
                 <div style="font-weight:700;">{{ m.model_name }}</div>
@@ -402,12 +406,18 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
               </td>
               <td>
                 <div class="lifecycle-actions">
-                  <button type="button" class="btn ghost" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "validate")' {% if not can_validate %}disabled{% endif %}>Validate</button>
-                  <button type="button" class="btn ghost" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "promote")' {% if not can_promote %}disabled{% endif %}>Promote</button>
-                  <button type="button" class="btn ghost" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "retire")' {% if not can_retire %}disabled{% endif %}>Retire</button>
-                  <button type="button" class="btn ghost" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "rollback")' {% if not can_rollback %}disabled{% endif %}>Rollback</button>
+                  <button type="button" class="btn ghost" title="{{ validate_reason }}" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "validate")' {% if not can_validate %}disabled{% endif %}>Validate</button>
+                  <button type="button" class="btn ghost" title="{{ promote_reason }}" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "promote")' {% if not can_promote %}disabled{% endif %}>Promote</button>
+                  <button type="button" class="btn ghost" title="{{ retire_reason }}" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "retire")' {% if not can_retire %}disabled{% endif %}>Retire</button>
+                  <button type="button" class="btn ghost" title="{{ rollback_reason }}" onclick='runLifecycleAction({{ m.model_name|tojson }}, {{ m.model_version|tojson }}, "rollback")' {% if not can_rollback %}disabled{% endif %}>Rollback</button>
                 </div>
-                <div class="lifecycle-guard-note">Retire / Rollback require typed confirmation. Server-side guardrails remain authoritative.</div>
+                <div class="lifecycle-guard-note">
+                  Retire / Rollback require typed confirmation. Server-side guardrails remain authoritative.
+                  {% if not can_validate %}<div style="margin-top:6px;">Validate: {{ validate_reason }}</div>{% endif %}
+                  {% if not can_promote %}<div style="margin-top:4px;">Promote: {{ promote_reason }}</div>{% endif %}
+                  {% if not can_retire %}<div style="margin-top:4px;">Retire: {{ retire_reason }}</div>{% endif %}
+                  {% if not can_rollback %}<div style="margin-top:4px;">Rollback: {{ rollback_reason }}</div>{% endif %}
+                </div>
               </td>
             </tr>
             {% endfor %}
