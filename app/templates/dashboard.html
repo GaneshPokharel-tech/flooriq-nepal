@@ -334,6 +334,7 @@
         </div>
 
         <div class="muted" id="brokerPerfMeta" style="margin-top:8px;"></div>
+        <div class="muted" id="brokerPerfHelper" style="margin-top:6px;font-size:12px;"></div>
       </div>
 
       <!-- Top Symbols + Anomalies -->
@@ -887,6 +888,9 @@
 
     document.getElementById("brokerPerfMeta").textContent =
       `calculation date: ${payload?.calculation_date || "—"} · window: ${s.data_start_date || "—"} to ${s.data_end_date || "—"} · active trading days: ${s.trading_days_active ?? "—"}`;
+
+    document.getElementById("brokerPerfHelper").textContent =
+      "Turnover consistency shows how stable daily turnover has been. Avg distinct symbols/day shows average symbol breadth on active days. Market-day activity rate shows the share of market days with recorded broker activity.";
   }
 
   function renderBrokerTrendChart(trend) {
@@ -1152,6 +1156,7 @@
     ["brokerTopSymbols","brokerAnomalies","brokerSectorFlows","brokerTrendRows"].forEach(id => setTbody(id, ""));
     document.getElementById("brokerTrendMeta").textContent = "";
     document.getElementById("brokerPerfMeta").textContent = "";
+    document.getElementById("brokerPerfHelper").textContent = "";
     document.getElementById("brokerPerfMsg").textContent = "Performance analytics load after broker data is fetched.";
     const perfStatus = document.getElementById("brokerPerfStatus");
     if (perfStatus) {
