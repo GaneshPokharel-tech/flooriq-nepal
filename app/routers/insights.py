@@ -64,14 +64,15 @@ async def _cache_set(redis, key: str, value, ttl: int = CACHE_TTL_SECONDS):
 
 def _friendly_anomaly_label(anomaly_type: str) -> str:
     mapping = {
-        "wash_candidate_roundtrip": "Candidate round-trip pattern",
-        "wash_candidate_self_trade": "Candidate self-trade pattern",
-        "wash_candidate_circular_flow": "Candidate circular flow pattern",
-        "wash_trading_v2.1_circular": "Legacy circular-flow heuristic flag",
-        "wash_counterparty_dominance": "Counterparty concentration flag",
-        "broker_net_amount_spike": "Net amount spike flag",
-        "symbol_turnover_spike": "Turnover spike flag",
-        "isolation_forest_anomaly": "ML anomaly flag",
+        "wash_candidate_roundtrip": "Round-trip activity pattern",
+        "wash_candidate_self_trade": "Self-match activity pattern",
+        "wash_candidate_circular_flow": "Circular flow activity pattern",
+        "wash_trading_v2.1_circular": "Circular flow activity pattern",
+        "wash_counterparty_dominance": "Counterparty concentration pattern",
+        "broker_net_amount_spike": "Net amount spike",
+        "symbol_turnover_spike": "Symbol turnover spike",
+        "self_trade_heavy": "Self-match activity pattern",
+        "isolation_forest_anomaly": "Unusual activity pattern",
     }
     return mapping.get(anomaly_type, anomaly_type.replace("_", " ").strip())
     

@@ -41,14 +41,15 @@ def _pdf_safe(text):
 
 def _friendly_anomaly_label(anomaly_type: str) -> str:
     mapping = {
-        "wash_candidate_roundtrip": "Candidate round-trip pattern",
-        "wash_candidate_self_trade": "Candidate self-trade pattern",
-        "wash_candidate_circular_flow": "Candidate circular flow pattern",
-        "wash_trading_v2.1_circular": "Legacy circular-flow heuristic flag",
-        "wash_counterparty_dominance": "Counterparty concentration flag",
-        "broker_net_amount_spike": "Net amount spike flag",
-        "symbol_turnover_spike": "Turnover spike flag",
-        "isolation_forest_anomaly": "ML anomaly flag",
+        "wash_candidate_roundtrip": "Round-trip activity pattern",
+        "wash_candidate_self_trade": "Self-match activity pattern",
+        "wash_candidate_circular_flow": "Circular flow activity pattern",
+        "wash_trading_v2.1_circular": "Circular flow activity pattern",
+        "wash_counterparty_dominance": "Counterparty concentration pattern",
+        "broker_net_amount_spike": "Net amount spike",
+        "symbol_turnover_spike": "Symbol turnover spike",
+        "self_trade_heavy": "Self-match activity pattern",
+        "isolation_forest_anomaly": "Unusual activity pattern",
     }
     return mapping.get(anomaly_type, anomaly_type.replace("_", " ").strip())
 
@@ -67,7 +68,7 @@ def _anomaly_details_summary(label, details) -> str:
     if not isinstance(d, dict) or not d:
         return ""
 
-    if label == "Candidate round-trip pattern":
+    if label == "Round-trip activity pattern":
         sym = d.get("symbol") or "-"
         cp = d.get("counterparty") or "-"
         risk = d.get("risk_band") or "-"
@@ -77,7 +78,7 @@ def _anomaly_details_summary(label, details) -> str:
         px = hc.get("price_deviation_pct", "-")
         return f"Symbol: {sym} | Counterparty: Broker {cp} | Risk: {risk} | Lag(min): {lag} | Px dev%: {px} | Historical pair days: {hp}"
 
-    if label == "Candidate self-trade pattern":
+    if label == "Self-match activity pattern":
         sym = d.get("symbol") or "-"
         risk = d.get("risk_band") or "-"
         hc = d.get("heuristic_components") or {}
@@ -86,13 +87,13 @@ def _anomaly_details_summary(label, details) -> str:
         amt_txt = _fmt(amt) if amt is not None else "-"
         return f"Symbol: {sym} | Risk: {risk} | Self trades: {cnt} | Total amount: {amt_txt}"
 
-    if label == "Legacy circular-flow heuristic flag":
+    if label == "Circular flow activity pattern":
         pattern = d.get("pattern") or "-"
         flow = d.get("total_circular_flow")
         flow_txt = _fmt(flow) if flow is not None else "-"
-        return f"Legacy pattern: {pattern} | Circular flow: {flow_txt}"
+        return f"Flow pattern: {pattern} | Circular flow: {flow_txt}"
 
-    if label == "Counterparty concentration flag":
+    if label == "Counterparty concentration pattern":
         cp = d.get("counterparty") or "-"
         share = d.get("share")
         turnover = d.get("broker_turnover")
@@ -102,26 +103,28 @@ def _anomaly_details_summary(label, details) -> str:
         linked_txt = _fmt(linked) if linked is not None else "-"
         return f"Counterparty: Broker {cp} | Share: {share_txt} | Broker turnover: {turnover_txt} | Linked amount: {linked_txt}"
 
-    if label == "Net amount spike flag":
+    if label == "Net amount spike":
         z = d.get("z")
         net_amount = d.get("net_amount")
         z_txt = f"{float(z):.2f}" if z is not None else "-"
         net_txt = _fmt(net_amount) if net_amount is not None else "-"
         return f"Z-score: {z_txt} | Net amount: {net_txt}"
 
-    if label == "Turnover spike flag":
+    if label == "Symbol turnover spike":
         z = d.get("z")
         total_amount = d.get("total_amount")
         z_txt = f"{float(z):.2f}" if z is not None else "-"
         amt_txt = _fmt(total_amount) if total_amount is not None else "-"
         return f"Z-score: {z_txt} | Total amount: {amt_txt}"
 
-    if label == "ML anomaly flag":
-        if_score = d.get("if_score")
-        threshold = d.get("threshold")
-        if_txt = f"{float(if_score):.3f}" if if_score is not None else "-"
-        th_txt = f"{float(threshold):.3f}" if threshold is not None else "-"
-        return f"IF score: {if_txt} | Threshold: {th_txt} | Model: IsolationForest"
+    if label == "Unusual activity pattern":
+        parts = []
+        if d.get("symbol"):
+            parts.append(f"Symbol: {d['symbol']}")
+        if d.get("threshold") is not None:
+            parts.append(f"Threshold: {float(d['threshold']):.3f}")
+        parts.append("Pattern differs from recent broker activity")
+        return " | ".join(parts[:4])
 
     parts = []
     if d.get("counterparty") is not None:

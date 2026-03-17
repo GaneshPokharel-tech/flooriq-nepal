@@ -348,7 +348,7 @@
         </div>
 
         <div class="card" style="background:var(--surface);">
-          <h2 style="margin-bottom:10px;">Anomalies — IF Scores</h2>
+          <h2 style="margin-bottom:10px;">Flagged Activity Patterns</h2>
           <table>
             <thead><tr><th>Type</th><th>Score</th><th>Details</th></tr></thead>
             <tbody id="brokerAnomalies"></tbody>
@@ -583,22 +583,71 @@
     return `<span class="pill ${cls}" style="color:${color};">${v}</span>`;
   }
 
-  function anomalyLabel(type) {
+  function anomalyMeta(type, labelOverride) {
     const map = {
-      wash_candidate_roundtrip:     {label:"Candidate round-trip pattern",      color:"var(--red)"},
-      wash_candidate_self_trade:    {label:"Candidate self-trade pattern",      color:"var(--blue)"},
-      wash_candidate_circular_flow: {label:"Candidate circular flow pattern",   color:"#a855f7"},
-      "wash_trading_v2.1_circular": {label:"Legacy circular-flow heuristic flag", color:"#a855f7"},
-      wash_counterparty_dominance:  {label:"Counterparty concentration flag",   color:"#a855f7"},
-      broker_net_amount_spike:      {label:"Net amount spike flag",             color:"var(--amber)"},
-      symbol_turnover_spike:        {label:"Turnover spike flag",               color:"var(--amber)"},
-      self_trade_heavy:             {label:"Legacy self-trade heuristic flag",  color:"var(--blue)"},
-      isolation_forest_anomaly:     {label:"ML anomaly flag",                   color:"var(--green)"},
+      wash_candidate_roundtrip:     {label:"Round-trip activity pattern",        color:"var(--red)"},
+      wash_candidate_self_trade:    {label:"Self-match activity pattern",        color:"var(--blue)"},
+      wash_candidate_circular_flow: {label:"Circular flow activity pattern",     color:"#a855f7"},
+      "wash_trading_v2.1_circular": {label:"Circular flow activity pattern",     color:"#a855f7"},
+      wash_counterparty_dominance:  {label:"Counterparty concentration pattern", color:"#a855f7"},
+      broker_net_amount_spike:      {label:"Net amount spike",                   color:"var(--amber)"},
+      symbol_turnover_spike:        {label:"Symbol turnover spike",              color:"var(--amber)"},
+      self_trade_heavy:             {label:"Self-match activity pattern",        color:"var(--blue)"},
+      isolation_forest_anomaly:     {label:"Unusual activity pattern",           color:"var(--green)"},
     };
-    const m = map[type] || {label: type, color:"var(--muted)"};
+    const fallbackLabel = String(type || "").replace(/_/g, " ").trim() || "Flagged pattern";
+    const hasKnownType = Object.prototype.hasOwnProperty.call(map, type);
+    const m = map[type] || {label: fallbackLabel, color:"var(--muted)"};
+    return { label: hasKnownType ? m.label : (labelOverride || m.label), color: m.color };
+  }
+
+  function anomalyLabel(type, labelOverride) {
+    const m = anomalyMeta(type, labelOverride);
     return `<span style="font-size:11px;font-weight:600;color:${m.color};
       background:${m.color}18;border:1px solid ${m.color}40;
       padding:2px 8px;border-radius:6px;white-space:nowrap;">${m.label}</span>`;
+  }
+
+  function anomalyDetails(a) {
+    let d = a && a.details;
+    if (typeof d === "string") {
+      try { d = JSON.parse(d); } catch (_) { d = {}; }
+    }
+    if (!d || typeof d !== "object") d = {};
+
+    const parts = [];
+
+    if (a.anomaly_type === "isolation_forest_anomaly") {
+      if (d.symbol) parts.push(`Symbol: ${d.symbol}`);
+      if (d.threshold != null) parts.push(`Threshold: ${Number(d.threshold).toFixed(3)}`);
+      parts.push("Pattern differs from recent broker activity");
+      return parts.join(" | ");
+    }
+
+    if (d.symbol) parts.push(`Symbol: ${d.symbol}`);
+    if (d.counterparty) parts.push(`Counterparty: Broker ${d.counterparty}`);
+    if (d.trade_count != null) parts.push(`Trades: ${d.trade_count}`);
+    if (d.total_amount != null) parts.push(`Amount: ₨ ${fmt(d.total_amount)}`);
+    if (d.net_amount != null) parts.push(`Net: ₨ ${fmt(d.net_amount)}`);
+    if (d.share_pct != null) parts.push(`Share: ${Number(d.share_pct).toFixed(1)}%`);
+    if (d.threshold != null && a.anomaly_type !== "isolation_forest_anomaly") {
+      parts.push(`Threshold: ${Number(d.threshold).toFixed(3)}`);
+    }
+    if (d.z != null) parts.push(`Z-score: ${Number(d.z).toFixed(2)}`);
+
+    if (parts.length) return parts.slice(0, 4).join(" | ");
+
+    if (a.anomaly_type === "broker_net_amount_spike") return "Net activity moved sharply versus recent baseline";
+    if (a.anomaly_type === "symbol_turnover_spike") return "Turnover moved sharply versus recent baseline";
+    if (a.anomaly_type === "wash_counterparty_dominance") return "High concentration with a single counterparty";
+    if (a.anomaly_type === "wash_candidate_roundtrip") return "Repeated buy and sell flow observed in a short window";
+    if (a.anomaly_type === "wash_candidate_self_trade" || a.anomaly_type === "self_trade_heavy") {
+      return "Matching-side activity pattern detected in broker flow";
+    }
+    if (a.anomaly_type === "wash_candidate_circular_flow" || a.anomaly_type === "wash_trading_v2.1_circular") {
+      return "Circular broker-to-broker flow pattern detected";
+    }
+    return "Activity pattern flagged for review";
   }
 
   function showErr(id, msg) {
@@ -723,14 +772,11 @@
     // Anomalies with score bars
     const anoms = d.anomalies || [];
     setTbody("brokerAnomalies", anoms.length === 0
-      ? `<tr><td colspan="3" style="color:var(--green);text-align:center;padding:14px;">✓ No anomalies</td></tr>`
+      ? `<tr><td colspan="3" style="color:var(--green);text-align:center;padding:14px;">✓ No flagged activity patterns for this date</td></tr>`
       : anoms.map(a => {
-          const det = a.details || {};
-          const detStr = a.anomaly_type === "isolation_forest_anomaly"
-            ? `IF Score: ${a.score.toFixed(3)}`
-            : det.counterparty ? `↔ Broker ${det.counterparty}` : (det.symbol || "");
+          const detStr = anomalyDetails(a);
           return `<tr>
-            <td>${anomalyLabel(a.anomaly_type)}</td>
+            <td>${anomalyLabel(a.anomaly_type, a.anomaly_label)}</td>
             <td>${scoreBar(a.score)}</td>
             <td style="font-size:11px;color:var(--muted);">${detStr}</td>
           </tr>`;
