@@ -257,7 +257,15 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
                 <div style="font-weight:700;">{{ m.model_name }}</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px;">{{ m.model_family }} · {{ m.entity_scope }}</div>
               </td>
-              <td class="mono">{{ m.model_version }}</td>
+              <td class="mono">
+                <div>{{ m.model_version }}</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:4px;">
+                  {{ 'artifact: ready' if m.artifact_uri else 'artifact: missing' }}
+                </div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px;">
+                  metrics: {{ (m.validation_metrics or {})|length }}
+                </div>
+              </td>
               <td><span class="pill {{ lifecycle_class }}">{{ (m.status or 'unknown').upper() }}</span></td>
               <td>{{ m.entity_scope }}</td>
               <td class="mono">{{ m.actual_history_days_used or 0 }} / {{ m.min_history_days_required or '—' }}</td>
