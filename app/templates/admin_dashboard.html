@@ -377,7 +377,9 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
               <td style="font-size:12px;line-height:1.45;">
                 {% if m.latest_run_triggered_by %}
                   <div style="font-size:11px;color:var(--muted);">source</div>
-                  <div class="mono" style="margin-top:2px;word-break:break-word;">{{ m.latest_run_triggered_by }}</div>
+                  <div class="mono" style="margin-top:2px;font-size:11px;" title="{{ m.latest_run_triggered_by }}">
+                    {{ m.latest_run_triggered_by[:18] ~ ('…' if (m.latest_run_triggered_by|length) > 18 else '') }}
+                  </div>
                 {% else %}
                   —
                 {% endif %}
