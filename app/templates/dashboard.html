@@ -224,7 +224,7 @@
         </div>
         <div class="kpi">
           <div class="k">Net Amount</div>
-          <div class="v" id="brokerNetAmount" style="color:var(--green);">—</div>
+          <div class="v" id="brokerNetAmount" style="color:var(--text);">—</div>
         </div>
         <div class="kpi">
           <div class="k">Buy Amount</div>
@@ -662,6 +662,28 @@
     if (el) el.innerHTML = val ?? "—";
   }
 
+  function setSignedCurrency(id, rawValue) {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    if (rawValue == null || rawValue === "" || Number.isNaN(Number(rawValue))) {
+      el.textContent = "—";
+      el.style.color = "var(--text)";
+      return;
+    }
+
+    const value = Number(rawValue);
+    el.textContent = fmt(value);
+
+    if (value < 0) {
+      el.style.color = "var(--red)";
+    } else if (value > 0) {
+      el.style.color = "var(--green)";
+    } else {
+      el.style.color = "var(--text)";
+    }
+  }
+
   function setTbody(id, html) {
     const el = document.getElementById(id);
     if (el) el.innerHTML = html || `<tr><td colspan="10" style="color:var(--muted);text-align:center;padding:16px;">No data</td></tr>`;
@@ -754,7 +776,7 @@
     setText("brokerRisk",      riskPill(d.risk));
     setText("brokerHHI",       c.hhi != null ? c.hhi.toFixed(0) : "—");
     setText("brokerTop1",      c.top1_share_pct != null ? c.top1_share_pct.toFixed(1) + "%" : "—");
-    setText("brokerNetAmount", fmt(s.net_amount));
+    setSignedCurrency("brokerNetAmount", s.net_amount);
     setText("brokerBuyAmount", fmt(s.total_buy_amount));
     setText("brokerSellAmount",fmt(s.total_sell_amount));
     setText("brokerTradesBuy", s.trades_buy_count ?? "—");
@@ -1121,11 +1143,12 @@
   });
 
   document.getElementById("clearBrokerBtn")?.addEventListener("click", () => {
-    ["brokerRisk","brokerHHI","brokerTop1","brokerNetAmount","brokerBuyAmount",
+    ["brokerRisk","brokerHHI","brokerTop1","brokerBuyAmount",
      "brokerSellAmount","brokerTradesBuy","brokerTradesSell",
      "brokerTrendLatestDate","brokerTrendLatestNet","brokerTrendLatestTurnover","brokerTrendLatestSymbols",
      "brokerPerfDays","brokerPerfAvgTurnover","brokerPerfConsistency","brokerPerfDiversification",
      "brokerPerfActivityRate","brokerPerfBuySellRatio","brokerPerfSharpe","brokerPerfWinRate"].forEach(id => setText(id, "—"));
+    setSignedCurrency("brokerNetAmount", null);
     ["brokerTopSymbols","brokerAnomalies","brokerSectorFlows","brokerTrendRows"].forEach(id => setTbody(id, ""));
     document.getElementById("brokerTrendMeta").textContent = "";
     document.getElementById("brokerPerfMeta").textContent = "";
