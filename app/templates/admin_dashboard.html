@@ -413,10 +413,17 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
                 </div>
                 <div class="lifecycle-guard-note">
                   Retire / Rollback require typed confirmation. Server-side guardrails remain authoritative.
-                  {% if not can_validate %}<div style="margin-top:6px;">Validate: {{ validate_reason }}</div>{% endif %}
-                  {% if not can_promote %}<div style="margin-top:4px;">Promote: {{ promote_reason }}</div>{% endif %}
-                  {% if not can_retire %}<div style="margin-top:4px;">Retire: {{ retire_reason }}</div>{% endif %}
-                  {% if not can_rollback %}<div style="margin-top:4px;">Rollback: {{ rollback_reason }}</div>{% endif %}
+                  {% if not can_validate or not can_promote or not can_retire or not can_rollback %}
+                  <details style="margin-top:6px;">
+                    <summary style="cursor:pointer;font-size:10px;color:var(--muted);">Why disabled?</summary>
+                    <div style="margin-top:6px;">
+                      {% if not can_validate %}<div>Validate: {{ validate_reason }}</div>{% endif %}
+                      {% if not can_promote %}<div style="margin-top:4px;">Promote: {{ promote_reason }}</div>{% endif %}
+                      {% if not can_retire %}<div style="margin-top:4px;">Retire: {{ retire_reason }}</div>{% endif %}
+                      {% if not can_rollback %}<div style="margin-top:4px;">Rollback: {{ rollback_reason }}</div>{% endif %}
+                    </div>
+                  </details>
+                  {% endif %}
                 </div>
               </td>
             </tr>
