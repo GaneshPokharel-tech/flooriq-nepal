@@ -261,20 +261,26 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
             </div>
             <div>
               <label for="trainingResultStatus" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">Run status</label>
-              <select id="trainingResultStatus">
+              <select id="trainingResultStatus" onchange="updateTrainingResultArtifactHint()">
                 <option value="started">started</option>
                 <option value="skipped">skipped</option>
                 <option value="failed">failed</option>
                 <option value="succeeded">succeeded</option>
               </select>
+              <div style="font-size:11px;color:var(--muted);margin-top:6px;">Succeeded runs require an artifact URI. Metrics, if provided, must be a JSON object.</div>
             </div>
             <div>
               <label for="trainingResultArtifactUri" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">Artifact URI</label>
               <input type="text" id="trainingResultArtifactUri" placeholder="Required when run status is succeeded" />
+              <div id="trainingResultArtifactHint" style="font-size:11px;color:var(--muted);margin-top:6px;">Artifact URI required for succeeded runs.</div>
             </div>
             <div>
-              <label for="trainingResultMetrics" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">Validation metrics JSON</label>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;">
+                <label for="trainingResultMetrics" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:0;">Validation metrics JSON</label>
+                <button type="button" class="btn ghost" style="padding:4px 8px;font-size:10px;" onclick="normalizeTrainingResultMetrics()">Format JSON</button>
+              </div>
               <textarea id="trainingResultMetrics" rows="4" placeholder='{"auc": 0.81, "precision_at_10": 0.4}'></textarea>
+              <div style="font-size:11px;color:var(--muted);margin-top:6px;">Optional. Use a JSON object only, not an array or plain text.</div>
             </div>
             <div>
               <label for="trainingResultNotes" style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px;">Notes</label>
@@ -839,9 +845,56 @@ function fillTrainingResultForm(modelName, modelVersion) {
   modelNameEl.value = modelName;
   modelVersionEl.value = modelVersion;
   modelVersionEl.focus();
+  updateTrainingResultArtifactHint();
 
   setLifecycleMsg("info", `Filled training-result form for ${modelName} ${modelVersion}. Review values before submit.`);
 }
+
+function updateTrainingResultArtifactHint() {
+  const statusEl = document.getElementById("trainingResultStatus");
+  const artifactEl = document.getElementById("trainingResultArtifactUri");
+  const hintEl = document.getElementById("trainingResultArtifactHint");
+  if (!statusEl || !artifactEl || !hintEl) return;
+
+  const isSucceeded = statusEl.value.trim().toLowerCase() === "succeeded";
+  artifactEl.required = isSucceeded;
+  artifactEl.placeholder = isSucceeded
+    ? "Required when run status is succeeded"
+    : "Optional unless run status is succeeded";
+  hintEl.textContent = isSucceeded
+    ? "Artifact URI required for succeeded runs."
+    : "Artifact URI optional for non-succeeded runs.";
+  hintEl.style.color = isSucceeded ? "var(--amber)" : "var(--muted)";
+}
+
+function normalizeTrainingResultMetrics() {
+  const metricsEl = document.getElementById("trainingResultMetrics");
+  if (!metricsEl) return;
+
+  const raw = metricsEl.value.trim();
+  if (!raw) {
+    setLifecycleMsg("info", "Validation metrics JSON is empty. Nothing to format.");
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    setLifecycleMsg("error", "Validation metrics JSON is invalid.");
+    return;
+  }
+
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
+    setLifecycleMsg("error", "Validation metrics JSON must be an object.");
+    return;
+  }
+
+  metricsEl.value = JSON.stringify(parsed, null, 2);
+  setLifecycleMsg("success", "Validation metrics JSON formatted.");
+}
+
+window.addEventListener("load", updateTrainingResultArtifactHint);
 
 async function runLifecycleAction(modelName, modelVersion, action) {
   const actionUpper = action.toUpperCase();
