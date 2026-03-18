@@ -568,6 +568,11 @@ def main():
         )
 
         for p in patterns:
+            # Legacy schema adapter:
+            # - correlation_score stores lag consistency, not Pearson correlation
+            # - leader_first_count stores matched leader instances
+            # - total_instances stores total leader events considered
+            # - statistical_significance stores threshold-pass boolean, not a formal significance test
             rows_to_insert.append((
                 calculation_date, p['leader'], p['follower'], p['symbol'],
                 p['avg_lag'], p['consistency_score'], p['instances'],
