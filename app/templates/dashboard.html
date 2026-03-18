@@ -460,6 +460,8 @@
         <div class="error" id="perfErr" style="display:none;"></div>
       </div>
 
+{% endif %}
+
       <!-- Sector Rotation -->
       <div class="card fade d2" style="margin-bottom:16px;">
         <div class="card-head"><h2>Sector Rotation (Turnover Δ)</h2></div>
@@ -481,6 +483,7 @@
         </div>
       </div>
 
+{% if not broker_locked %}
       <!-- Anomalies Today -->
       <div class="card fade d3" style="margin-bottom:16px;">
         <div class="card-head">
@@ -519,6 +522,8 @@
         </table>
       </div>
 
+{% endif %}
+
       <!-- Top Symbols -->
       <div class="card fade d4">
         <div class="card-head"><h2>Top Symbols</h2></div>
@@ -540,8 +545,6 @@
           <tbody id="topSymbols"></tbody>
         </table>
       </div>
-
-{% endif %}
 
     </aside>
   </div>
