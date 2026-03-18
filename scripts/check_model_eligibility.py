@@ -1,6 +1,7 @@
 import json
 import sys
-from datetime import datetime, UTC
+from datetime import UTC, datetime
+from statistics import median
 
 from app.database import get_conn
 from app.services.model_registry import (
@@ -91,7 +92,146 @@ def main():
             training_window_end = win[1]
 
             data_sufficiency_passed = actual_history_days >= rule["min_history_days_required"]
-            data_quality_passed = actual_history_days > 0  # minimal placeholder; can be hardened later
+
+            latest_data_date = training_window_end
+            latest_feature_rows = 0
+            latest_broker_count = 0
+            latest_trade_rows = 0
+            latest_symbol_count = 0
+            latest_trade_null_rows = 0
+            latest_trade_null_rate = None
+            recent_feature_row_median = None
+            recent_trade_row_median = None
+            data_quality_reasons = []
+
+            if not latest_data_date:
+                data_quality_reasons.append(
+                    "No broker_daily_features business_date found on or before as_of_date."
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT COUNT(*), COUNT(DISTINCT broker_id)
+                    FROM public.broker_daily_features
+                    WHERE business_date = %s
+                    """,
+                    (latest_data_date,),
+                )
+                feature_stats = cur.fetchone()
+                latest_feature_rows = int(feature_stats[0] or 0)
+                latest_broker_count = int(feature_stats[1] or 0)
+
+                cur.execute(
+                    """
+                    SELECT
+                        COUNT(*),
+                        COUNT(DISTINCT stock_symbol),
+                        COALESCE(
+                            SUM(
+                                CASE
+                                    WHEN buyer_member_id IS NULL
+                                      OR seller_member_id IS NULL
+                                      OR stock_symbol IS NULL
+                                      OR qty IS NULL
+                                      OR price IS NULL
+                                      OR amount IS NULL
+                                    THEN 1
+                                    ELSE 0
+                                END
+                            ),
+                            0
+                        )
+                    FROM public.trades
+                    WHERE business_date = %s
+                    """,
+                    (latest_data_date,),
+                )
+                trade_stats = cur.fetchone()
+                latest_trade_rows = int(trade_stats[0] or 0)
+                latest_symbol_count = int(trade_stats[1] or 0)
+                latest_trade_null_rows = int(trade_stats[2] or 0)
+                if latest_trade_rows > 0:
+                    latest_trade_null_rate = latest_trade_null_rows / latest_trade_rows
+
+                cur.execute(
+                    """
+                    SELECT row_count
+                    FROM (
+                        SELECT business_date, COUNT(*) AS row_count
+                        FROM public.broker_daily_features
+                        WHERE business_date <= %s
+                        GROUP BY business_date
+                        ORDER BY business_date DESC
+                        LIMIT 10
+                    ) recent_feature_days
+                    """,
+                    (latest_data_date,),
+                )
+                recent_feature_counts = [int(r[0] or 0) for r in cur.fetchall()]
+                if recent_feature_counts:
+                    recent_feature_row_median = float(median(recent_feature_counts))
+
+                cur.execute(
+                    """
+                    SELECT row_count
+                    FROM (
+                        SELECT business_date, COUNT(*) AS row_count
+                        FROM public.trades
+                        WHERE business_date <= %s
+                        GROUP BY business_date
+                        ORDER BY business_date DESC
+                        LIMIT 10
+                    ) recent_trade_days
+                    """,
+                    (latest_data_date,),
+                )
+                recent_trade_counts = [int(r[0] or 0) for r in cur.fetchall()]
+                if recent_trade_counts:
+                    recent_trade_row_median = float(median(recent_trade_counts))
+
+                if latest_feature_rows <= 0:
+                    data_quality_reasons.append(
+                        f"No broker_daily_features rows found for latest_data_date={latest_data_date}."
+                    )
+                if latest_broker_count <= 0:
+                    data_quality_reasons.append(
+                        "No broker coverage found in broker_daily_features "
+                        f"for latest_data_date={latest_data_date}."
+                    )
+                if latest_trade_rows <= 0:
+                    data_quality_reasons.append(
+                        f"No trades rows found for latest_data_date={latest_data_date}."
+                    )
+                if latest_symbol_count <= 0:
+                    data_quality_reasons.append(
+                        f"No symbol coverage found in trades for latest_data_date={latest_data_date}."
+                    )
+                if latest_trade_null_rate is not None and latest_trade_null_rate > 0.05:
+                    data_quality_reasons.append(
+                        "Critical trade field null rate exceeds 5% "
+                        f"for latest_data_date={latest_data_date} "
+                        f"({latest_trade_null_rows}/{latest_trade_rows})."
+                    )
+                if (
+                    recent_feature_row_median is not None
+                    and recent_feature_row_median > 0
+                    and latest_feature_rows < max(1, int(recent_feature_row_median * 0.5))
+                ):
+                    data_quality_reasons.append(
+                        "Latest broker_daily_features row count is materially below "
+                        f"recent median ({latest_feature_rows} vs {recent_feature_row_median:.1f})."
+                    )
+                if (
+                    recent_trade_row_median is not None
+                    and recent_trade_row_median > 0
+                    and latest_trade_rows < max(1, int(recent_trade_row_median * 0.5))
+                ):
+                    data_quality_reasons.append(
+                        "Latest trades row count is materially below "
+                        f"recent median ({latest_trade_rows} vs {recent_trade_row_median:.1f})."
+                    )
+
+            data_quality_passed = len(data_quality_reasons) == 0
 
             cur.execute(
                 """
@@ -120,6 +260,7 @@ def main():
             run_status = "succeeded" if data_sufficiency_passed and data_quality_passed else "skipped"
             summary = {
                 "as_of_date": as_of_date,
+                "latest_data_date": latest_data_date.isoformat() if latest_data_date else None,
                 "model_name": model_name,
                 "target_model_version": target_model_version,
                 "model_family": rule["model_family"],
@@ -128,6 +269,15 @@ def main():
                 "actual_history_days_available": actual_history_days,
                 "data_sufficiency_passed": data_sufficiency_passed,
                 "data_quality_passed": data_quality_passed,
+                "latest_feature_rows": latest_feature_rows,
+                "latest_broker_count": latest_broker_count,
+                "latest_trade_rows": latest_trade_rows,
+                "latest_symbol_count": latest_symbol_count,
+                "latest_trade_null_rows": latest_trade_null_rows,
+                "latest_trade_null_rate": latest_trade_null_rate,
+                "recent_feature_row_median": recent_feature_row_median,
+                "recent_trade_row_median": recent_trade_row_median,
+                "data_quality_reasons": data_quality_reasons,
                 "notes": rule["notes"],
                 "checked_at": datetime.now(UTC).isoformat(),
                 "triggered_by": triggered_by,
@@ -186,6 +336,16 @@ def main():
     print(f"min_history_days_required: {rule['min_history_days_required']}")
     print(f"data_sufficiency_passed: {data_sufficiency_passed}")
     print(f"data_quality_passed: {data_quality_passed}")
+    print(f"latest_data_date: {latest_data_date}")
+    print(f"latest_feature_rows: {latest_feature_rows}")
+    print(f"latest_broker_count: {latest_broker_count}")
+    print(f"latest_trade_rows: {latest_trade_rows}")
+    print(f"latest_symbol_count: {latest_symbol_count}")
+    print(f"latest_trade_null_rows: {latest_trade_null_rows}")
+    print(f"recent_feature_row_median: {recent_feature_row_median}")
+    print(f"recent_trade_row_median: {recent_trade_row_median}")
+    if data_quality_reasons:
+        print(f"data_quality_reasons: {json.dumps(data_quality_reasons)}")
     print(f"run_status: {run_status}")
     print(f"model_training_runs.id: {run_id}")
     print("=" * 72)
