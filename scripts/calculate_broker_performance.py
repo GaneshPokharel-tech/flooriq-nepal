@@ -5,6 +5,8 @@ from decimal import Decimal
 import statistics
 from app.database import get_conn
 
+NEPSE_TRADING_DAYS_PER_YEAR = 240
+
 
 def calculate_consistency_score(values):
     """
@@ -43,8 +45,8 @@ def calculate_sharpe_ratio(daily_returns, risk_free_rate=0.0):
         return None
     
     sharpe = (mean_return - risk_free_rate) / stdev_return
-    # Annualize (assuming 252 trading days)
-    sharpe_annualized = sharpe * (252 ** 0.5)
+    # Annualize using NEPSE-style trading year assumption
+    sharpe_annualized = sharpe * (NEPSE_TRADING_DAYS_PER_YEAR ** 0.5)
     
     return round(sharpe_annualized, 4)
 
