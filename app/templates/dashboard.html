@@ -1178,7 +1178,9 @@
   document.getElementById("downloadPdfBtn")?.addEventListener("click", () => {
     const bid = brokerSelect?.value;
     if (!bid) { alert("Select a broker first."); return; }
-    window.open(`${API}/reports/broker/${bid}.pdf`, "_blank");
+    const date = (brokerDateIn?.value || "").trim();
+    const qs = date ? `?business_date=${encodeURIComponent(date)}` : "";
+    window.open(`${API}/reports/broker/${bid}.pdf${qs}`, "_blank");
   });
 
   document.getElementById("loadSectorsBtn")?.addEventListener("click", loadSectors);

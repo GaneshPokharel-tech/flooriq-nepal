@@ -316,6 +316,66 @@ async def broker_report_pdf(
         sector_rows.sort(key=lambda x: abs(x[1]), reverse=True)
         sector_rows = sector_rows[:6]
 
+        # Performance snapshot
+        performance = None
+        performance_status = None
+        cur.execute(
+            "SELECT MAX(calculation_date) FROM public.broker_performance_metrics WHERE calculation_date <= %s",
+            (business_date,),
+        )
+        perf_calc_date = cur.fetchone()[0]
+
+        if perf_calc_date is not None:
+            cur.execute(
+                """
+                SELECT
+                    calculation_date,
+                    days_analyzed,
+                    data_start_date,
+                    data_end_date,
+                    trading_days_active,
+                    avg_daily_turnover,
+                    activity_rate,
+                    buy_sell_ratio,
+                    symbol_diversification,
+                    consistency_score,
+                    sharpe_ratio,
+                    win_rate,
+                    data_sufficient_basic,
+                    data_sufficient_advanced
+                FROM public.broker_performance_metrics
+                WHERE calculation_date = %s
+                  AND broker_id = %s
+                """,
+                (perf_calc_date, broker_id),
+            )
+            prow = cur.fetchone()
+
+            if prow:
+                performance = {
+                    "calculation_date": prow[0],
+                    "days_analyzed": int(prow[1] or 0),
+                    "data_start_date": prow[2],
+                    "data_end_date": prow[3],
+                    "trading_days_active": int(prow[4] or 0),
+                    "avg_daily_turnover": float(prow[5]) if prow[5] is not None else None,
+                    "activity_rate": float(prow[6]) if prow[6] is not None else None,
+                    "buy_sell_ratio": float(prow[7]) if prow[7] is not None else None,
+                    "symbol_diversification": float(prow[8]) if prow[8] is not None else None,
+                    "consistency_score": float(prow[9]) if prow[9] is not None else None,
+                    "sharpe_ratio": float(prow[10]) if prow[10] is not None else None,
+                    "win_rate": float(prow[11]) if prow[11] is not None else None,
+                    "data_sufficient_basic": bool(prow[12]),
+                    "data_sufficient_advanced": bool(prow[13]),
+                }
+
+                if performance["data_sufficient_advanced"]:
+                    performance_status = "ADVANCED"
+                elif performance["data_sufficient_basic"]:
+                    performance_status = "BASIC"
+                else:
+                    performance_status = "LIMITED"
+
     # ── PDF ───────────────────────────────────────────────────────────────────
     try:
         from fpdf import FPDF
@@ -458,6 +518,45 @@ async def broker_report_pdf(
     ]
     for i, (k, v) in enumerate(rows_kv):
         pdf.kv_row(k, v, shade=(i % 2 == 0))
+
+    # ── PERFORMANCE SNAPSHOT ──────────────────────────────────────────────────
+    if performance:
+        pdf.section_title("Broker Performance Snapshot")
+
+        perf_rows = [
+            ("Status", performance_status or "-"),
+            ("Days Analyzed", str(performance["days_analyzed"])),
+            ("Avg Daily Turnover", _fmt(performance["avg_daily_turnover"])),
+            ("Turnover Consistency", f"{performance['consistency_score']:.2f}" if performance["consistency_score"] is not None else "-"),
+            ("Avg Distinct Symbols/Day", f"{performance['symbol_diversification']:.2f}" if performance["symbol_diversification"] is not None else "-"),
+            ("Market-Day Activity Rate", f"{performance['activity_rate'] * 100:.1f}%" if performance["activity_rate"] is not None else "-"),
+            ("Buy/Sell Ratio", f"{performance['buy_sell_ratio']:.2f}" if performance["buy_sell_ratio"] is not None else "-"),
+            ("Sharpe Ratio", f"{performance['sharpe_ratio']:.2f}" if performance["data_sufficient_advanced"] and performance["sharpe_ratio"] is not None else "-"),
+            ("Win Rate", f"{performance['win_rate'] * 100:.1f}%" if performance["data_sufficient_advanced"] and performance["win_rate"] is not None else "-"),
+        ]
+        for i, (k, v) in enumerate(perf_rows):
+            pdf.kv_row(k, v, shade=(i % 2 == 0))
+
+        pdf.set_text_color(*C_MUTED)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.multi_cell(
+            190, 5,
+            _pdf_safe(
+                f"Calculation date: {performance['calculation_date']} | "
+                f"Window: {performance['data_start_date'] or '-'} to {performance['data_end_date'] or '-'} | "
+                f"Active trading days: {performance['trading_days_active']}"
+            ),
+        )
+        pdf.set_text_color(*C_MUTED)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.multi_cell(
+            190, 5,
+            _pdf_safe(
+                "Turnover consistency shows how stable daily turnover has been. "
+                "Avg distinct symbols/day shows average symbol breadth on active days. "
+                "Market-day activity rate shows the share of market days with recorded broker activity."
+            ),
+        )
 
     # ── TOP SYMBOLS ───────────────────────────────────────────────────────────
     pdf.section_title("Top Symbols (Buy)")
