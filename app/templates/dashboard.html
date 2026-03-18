@@ -207,6 +207,11 @@
 
       <div id="brokerErr" class="error" style="display:none;"></div>
       <div id="brokerMsg" class="muted" style="margin-top:10px;display:none;"></div>
+      {% if broker_locked %}
+      <div class="muted" style="margin-top:10px;font-size:12px;">
+        Your dashboard includes broker-specific analytics and selected market summaries. Peer broker rankings and contributor views are not shown on restricted accounts.
+      </div>
+      {% endif %}
 
       <!-- KPIs -->
       <div class="kpis">
