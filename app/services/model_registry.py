@@ -10,7 +10,7 @@ MODEL_SPECS = {
         "model_family": "anomaly_detection",
         "entity_scope": "broker",
         "status": "candidate",
-        "min_history_days_required": 20,
+        "min_history_days_required": 60,
         "training_params": {
             "algorithm": "IsolationForest",
             "n_estimators": 200,
@@ -20,14 +20,14 @@ MODEL_SPECS = {
             "current_mode": "daily_refit_heuristic",
             "future_target": "versioned_lifecycle_managed_model",
         },
-        "notes": "Candidate registry entry for future governed broker anomaly model.",
+        "notes": "Candidate registry entry for future governed broker anomaly model. Governance eligibility requires at least 60 trading days of history."
     },
     "broker_performance_advanced": {
         "model_version": "candidate_v1",
         "model_family": "broker_performance",
         "entity_scope": "broker",
         "status": "candidate",
-        "min_history_days_required": 20,
+        "min_history_days_required": 60,
         "training_params": {
             "mode": "historical_metrics",
             "advanced_metrics": [
@@ -39,19 +39,19 @@ MODEL_SPECS = {
             ],
             "current_gate": "20_plus_days",
         },
-        "notes": "Candidate registry entry for advanced broker performance analytics.",
+        "notes": "Candidate registry entry for advanced broker performance analytics. Governance eligibility requires at least 60 trading days even though some UI analytics may appear earlier."
     },
     "leader_follower_validation": {
         "model_version": "candidate_v1",
         "model_family": "surveillance_validation",
         "entity_scope": "broker_pair",
         "status": "candidate",
-        "min_history_days_required": 30,
+        "min_history_days_required": 60,
         "training_params": {
             "mode": "conservative_validation_gate",
             "current_output": "candidate_patterns_only",
         },
-        "notes": "Candidate registry entry for future formal leader-follower validation workflow.",
+        "notes": "Candidate registry entry for future formal leader-follower validation workflow. Conservative governance eligibility requires at least 60 trading days of history."
     },
 }
 
