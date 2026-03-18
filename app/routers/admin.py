@@ -555,29 +555,5 @@ async def panel_model_lifecycle_record_training_result(
 
 
 
-@router.get("/admin/debug-broker/{broker_id}")
-async def debug_broker(broker_id: int, admin: str = Depends(require_panel_admin), redis=Depends(redis_client)):
-    from app.broker_auth import get_broker_config, verify_password
-    cfg = await get_broker_config(redis, broker_id)
-    pwd_hash = cfg.get("password_hash") or cfg.get("password") or ""
-    test = verify_password("Broker@Nepal123!", pwd_hash)
-    return {
-        "cfg_keys": list(cfg.keys()),
-        "has_hash": bool(pwd_hash),
-        "hash_prefix": pwd_hash[:20] if pwd_hash else "",
-        "verify_test": test,
-        "redis_connected": redis is not None,
-    }
 
 
-@router.get("/admin/debug-login/{broker_id}")
-async def debug_login(broker_id: int, admin: str = Depends(require_panel_admin), redis=Depends(redis_client)):
-    from app.broker_auth import get_broker_config, verify_password
-    cfg = await get_broker_config(redis, broker_id)
-    pwd_hash = cfg.get("password_hash") or cfg.get("password") or ""
-    test = verify_password("Broker@Nepal123!", pwd_hash)
-    return {
-        "cfg": cfg,
-        "verify": test,
-        "redis": redis is not None,
-    }
