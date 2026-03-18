@@ -61,14 +61,14 @@ async def super_unlock(request: Request, admin: str = Depends(require_panel_admi
     return resp
 
 @router.post("/admin/super/lock")
-async def super_lock():
+async def super_lock(admin: str = Depends(require_panel_admin)):
     s = Settings()
     resp = JSONResponse({"ok": True, "unlocked": False})
     resp.delete_cookie(key=admin_cookie_name(), path="/")
     return resp
 
 @router.post("/admin/refresh")
-async def refresh(ref: str = DEFAULT_REF):
+async def refresh(ref: str = DEFAULT_REF, admin: str = Depends(require_panel_admin)):
     s = Settings()
     if not s.github_token:
         raise HTTPException(status_code=500, detail="GITHUB_TOKEN not configured.")
@@ -88,6 +88,7 @@ async def refresh(ref: str = DEFAULT_REF):
 async def audit(
     broker_id: int,
     limit: int = 50,
+    admin: str = Depends(require_panel_admin),
     redis=Depends(redis_client),
     conn: psycopg.Connection = Depends(db_conn),
 ):
@@ -146,7 +147,7 @@ async def audit(
     return {"ok": True, "broker_id": broker_id, "count": len(data), "data": data}
 
 @router.post("/admin/brokers/set")
-async def set_broker(broker_id: int, password: str, plan: str = "free", whatsapp: str = "", disabled: bool = False, redis=Depends(redis_client)):
+async def set_broker(broker_id: int, password: str, plan: str = "free", whatsapp: str = "", disabled: bool = False, admin: str = Depends(require_panel_admin), redis=Depends(redis_client)):
     if broker_id < 1: raise HTTPException(status_code=400, detail="broker_id must be positive")
     if not password or len(password) < 4: raise HTTPException(status_code=400, detail="password too short")
     if redis is None: raise HTTPException(status_code=500, detail="Redis not configured.")
@@ -156,7 +157,7 @@ async def set_broker(broker_id: int, password: str, plan: str = "free", whatsapp
     return {"ok": True, "broker_id": broker_id, "plan": plan}
 
 @router.post("/admin/payments/approve")
-async def approve_payment_legacy(broker_id: int, provider: str, txid: str, redis=Depends(redis_client)):
+async def approve_payment_legacy(broker_id: int, provider: str, txid: str, admin: str = Depends(require_panel_admin), redis=Depends(redis_client)):
     if redis is None: raise HTTPException(status_code=500, detail="Redis not configured.")
     provider = (provider or "").lower().strip()
     if provider not in ("esewa","khalti"): raise HTTPException(status_code=400, detail="provider must be esewa or khalti")
@@ -555,7 +556,7 @@ async def panel_model_lifecycle_record_training_result(
 
 
 @router.get("/admin/debug-broker/{broker_id}")
-async def debug_broker(broker_id: int, redis=Depends(redis_client)):
+async def debug_broker(broker_id: int, admin: str = Depends(require_panel_admin), redis=Depends(redis_client)):
     from app.broker_auth import get_broker_config, verify_password
     cfg = await get_broker_config(redis, broker_id)
     pwd_hash = cfg.get("password_hash") or cfg.get("password") or ""
@@ -570,7 +571,7 @@ async def debug_broker(broker_id: int, redis=Depends(redis_client)):
 
 
 @router.get("/admin/debug-login/{broker_id}")
-async def debug_login(broker_id: int, redis=Depends(redis_client)):
+async def debug_login(broker_id: int, admin: str = Depends(require_panel_admin), redis=Depends(redis_client)):
     from app.broker_auth import get_broker_config, verify_password
     cfg = await get_broker_config(redis, broker_id)
     pwd_hash = cfg.get("password_hash") or cfg.get("password") or ""
