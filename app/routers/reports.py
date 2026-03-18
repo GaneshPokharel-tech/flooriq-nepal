@@ -646,11 +646,37 @@ async def broker_report_pdf(
             acolor = C_MUTED
             score_f = float(score)
 
+            det_str = _anomaly_details_summary(label, details).strip()
+            detail_w = 180
+            detail_line_h = 3.5
+            detail_lines = []
+
+            pdf.set_font("Helvetica", "", 7)
+            if det_str:
+                current_line = ""
+                for word in det_str.split():
+                    candidate = word if not current_line else f"{current_line} {word}"
+                    if pdf.get_string_width(_pdf_safe(candidate)) <= detail_w:
+                        current_line = candidate
+                    else:
+                        if current_line:
+                            detail_lines.append(current_line)
+                        current_line = word
+                if current_line:
+                    detail_lines.append(current_line)
+
+            detail_block_h = len(detail_lines) * detail_line_h
+            card_h = max(11, 8.5 + detail_block_h + 1.5)
+
             y = pdf.get_y()
+            if y + card_h > pdf.page_break_trigger:
+                pdf.add_page()
+                y = pdf.get_y()
+
             pdf.set_fill_color(*C_SURFACE)
-            pdf.rect(10, y, 190, 11, "F")
+            pdf.rect(10, y, 190, card_h, "F")
             pdf.set_fill_color(*acolor)
-            pdf.rect(10, y, 3, 11, "F")
+            pdf.rect(10, y, 3, card_h, "F")
 
             pdf.set_xy(15, y + 1.5)
             pdf.set_text_color(*acolor)
@@ -663,13 +689,17 @@ async def broker_report_pdf(
             pdf.set_font("Helvetica", "B", 7)
             pdf.cell(40, 4, _pdf_safe(f"Score: {score_f:.3f}"), align="C", fill=True)
 
-            # Details
-            pdf.set_xy(15, y + 6.5)
-            pdf.set_text_color(*C_MUTED)
-            pdf.set_font("Helvetica", "", 7)
-            det_str = _anomaly_details_summary(label, details)
-            pdf.cell(0, 3, _pdf_safe(det_str[:110]))
-            pdf.ln(4)
+            if detail_lines:
+                pdf.set_xy(15, y + 6.5)
+                pdf.set_text_color(*C_MUTED)
+                pdf.set_font("Helvetica", "", 7)
+                pdf.multi_cell(
+                    detail_w,
+                    detail_line_h,
+                    _pdf_safe("\n".join(detail_lines)),
+                )
+
+            pdf.set_y(y + card_h + 1)
 
     # ── CLOSING NOTE ──────────────────────────────────────────────────────────
     pdf.ln(4)
