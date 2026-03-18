@@ -238,11 +238,12 @@ def calculate_broker_metrics(cur, broker_id, as_of_date):
         
         # Simple p-value approximation (t-test against zero mean)
         if len(daily_net) >= 20:
-            from scipy import stats
             try:
+                from scipy import stats
                 t_stat, p_value = stats.ttest_1samp(daily_net, 0)
                 p_value = round(p_value, 6)
-            except:
+            except Exception as e:
+                print(f"[WARN] SciPy t-test skipped for broker {broker_id} on {as_of_date}: {e}")
                 p_value = None
     
     return {
