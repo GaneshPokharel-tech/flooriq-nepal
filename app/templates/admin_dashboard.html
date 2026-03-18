@@ -217,7 +217,7 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
   <div class="card">
     <div class="card-head">
       <h2>Model Lifecycle Registry</h2>
-      <div style="font-size:12px;color:var(--muted);">Visibility plus guarded admin lifecycle actions for registered models</div>
+      <div style="font-size:12px;color:var(--muted);">Registry visibility and guarded status actions for registered models. These controls update lifecycle records and audit history.</div>
     </div>
 
     <div id="lifecycleMsg" style="display:none;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;"></div>
@@ -424,7 +424,7 @@ tr:last-child td{border-bottom:none;}tbody tr:hover td{background:#ffffff04;}
                     <button type="button" class="btn ghost" style="padding:4px 8px;font-size:10px;" onclick='fillCreateVersionForm({{ m.model_name|tojson }}, {{ m.model_version|tojson }})'>Use in create-version</button>
                     <button type="button" class="btn ghost" style="padding:4px 8px;font-size:10px;" onclick='fillTrainingResultForm({{ m.model_name|tojson }}, {{ m.model_version|tojson }})'>Use in training-result</button>
                   </div>
-                  Retire / Rollback require typed confirmation. Server-side guardrails remain authoritative.
+                  Retire / Rollback require typed confirmation. Server-side guardrails remain authoritative. Lifecycle actions update registry status and audit history; current refresh scoring remains script-managed.
                   {% if not can_validate or not can_promote or not can_retire or not can_rollback %}
                   <details style="margin-top:6px;">
                     <summary style="cursor:pointer;font-size:10px;color:var(--muted);">Why disabled?</summary>
@@ -923,7 +923,7 @@ async function runLifecycleAction(modelName, modelVersion, action) {
     if (!confirm(`Proceed with ${label}?`)) return;
   }
 
-  setLifecycleMsg("info", `Running ${label}...`);
+  setLifecycleMsg("info", `Updating lifecycle registry for ${modelName} ${modelVersion} (${actionUpper})...`);
 
   try {
     const res = await fetch("/admin/panel/model-lifecycle/action", {
@@ -940,7 +940,7 @@ async function runLifecycleAction(modelName, modelVersion, action) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || `Request failed (${res.status})`);
 
-    setLifecycleMsg("success", `✅ ${action.toUpperCase()} succeeded for ${modelName} ${modelVersion}. Reloading...`);
+    setLifecycleMsg("success", `✅ Lifecycle registry updated: ${action.toUpperCase()} completed for ${modelName} ${modelVersion}. Reloading...`);
     window.location.hash = "tab-lifecycle";
     window.location.reload();
   } catch (e) {
