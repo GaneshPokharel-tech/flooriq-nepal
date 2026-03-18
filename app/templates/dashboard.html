@@ -1171,7 +1171,7 @@
   document.getElementById("copyLinkBtn")?.addEventListener("click", () => {
     const bid = brokerSelect?.value;
     const date = brokerDateIn?.value;
-    const url = `${location.origin}/dashboard?broker_id=${bid}${date ? "&date="+date : ""}`;
+    const url = `${location.origin}/dashboard?broker_id=${bid}${date ? "&business_date="+encodeURIComponent(date.trim()) : ""}`;
     navigator.clipboard.writeText(url).then(() => alert("Link copied!"));
   });
 
@@ -1190,9 +1190,20 @@
   document.getElementById("loadHHIBtn")?.addEventListener("click", loadMarketHHI);
   document.getElementById("loadPerfBtn")?.addEventListener("click", loadPerformance);
 
-  // ── AUTO-LOAD if broker locked ───────────────────────────────────────────
+  // ── AUTO-LOAD if broker locked or shared link params are present ────────
   window.addEventListener("DOMContentLoaded", () => {
-    if (_brokerLocked && _sessionBid) {
+    const params = new URLSearchParams(window.location.search);
+    const qsBid = (params.get("broker_id") || "").trim();
+    const qsDate = (params.get("business_date") || "").trim();
+
+    if (!_brokerLocked && qsBid && brokerSelect) {
+      brokerSelect.value = qsBid;
+    }
+    if (qsDate && brokerDateIn) {
+      brokerDateIn.value = qsDate;
+    }
+
+    if ((_brokerLocked && _sessionBid) || qsBid) {
       loadBroker();
     }
   });
