@@ -1,3 +1,9 @@
+/*
+ * Legacy/inactive dashboard asset.
+ * Current broker dashboard behavior is primarily implemented in app/templates/dashboard.html.
+ * Do not assume edits in this file affect the live broker dashboard unless it is explicitly re-included.
+ */
+
 (function () {
   const API_BASE = (window.FLOORIQ_API_BASE || "").replace(/\/+$/, "");
 
