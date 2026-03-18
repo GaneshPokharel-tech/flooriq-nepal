@@ -1,8 +1,6 @@
-name: Daily Wash Trading Candidate Flags
+name: Manual Wash Trading Candidate Flags
 
 on:
-  schedule:
-    - cron: '45 12 * * *'
   workflow_dispatch:
 
 jobs:
