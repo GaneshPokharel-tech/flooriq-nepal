@@ -363,7 +363,7 @@ async def panel_dashboard(request: Request, admin: str = Depends(require_panel_a
         "request": request, "admin": admin, "brokers": brokers,
         "pending_payments": pending_payments, "all_payments": all_payments,
         "model_lifecycle": model_lifecycle,
-        "total_brokers": len(brokers), "active_brokers": sum(1 for b in brokers if b["status"] == "unprovisioned"),
+        "total_brokers": len(brokers), "unprovisioned_brokers": sum(1 for b in brokers if b["status"] == "unprovisioned"),
         "expired": sum(1 for b in brokers if b["status"]=="expired"), "pending_count": len(pending_payments), "today": today,
     })
 
