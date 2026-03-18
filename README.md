@@ -9,13 +9,13 @@ This project is analytics-only. It provides descriptive insights and anomaly fla
 - Python + Jupyter (exploration)
 - FastAPI (API backend)
 - Supabase Postgres (storage)
-- Optional Redis (later)
-- GitHub Actions cron (planned)
+- Optional Redis (cache layer; app degrades gracefully if absent)
+- GitHub Actions scheduled/manual refresh workflows
 
 ## Repo structure
 - notebooks/ — exploration and validation
 - scripts/ — production jobs (ingest, features, anomalies)
-- src/flooriq/api/ — FastAPI service
+- app/ — FastAPI app, routers, templates, and services
 - supabase/schema.sql — database schema
 - data/raw/, data/normalized/ — local-only working folders (gitignored)
 
@@ -65,7 +65,7 @@ python scripts/detect_anomalies.py YYYY-MM-DD
 ## Run the API
 
 ```bash
-uvicorn src.flooriq.api.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000
 ```
 ## API endpoints
 
