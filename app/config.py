@@ -61,5 +61,9 @@ class Settings(BaseSettings):
     whatsapp_from: str = Field(default="", validation_alias="WHATSAPP_FROM")
     whatsapp_token: str = Field(default="", validation_alias="WHATSAPP_TOKEN")
 
+    # Anomaly detection tuning
+    if_contamination: float = Field(default=0.1, validation_alias="IF_CONTAMINATION")
+    if_threshold: float = Field(default=0.60, validation_alias="IF_THRESHOLD")
+
 
 settings = Settings()

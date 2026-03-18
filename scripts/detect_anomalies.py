@@ -3,6 +3,7 @@ import json
 import numpy as np
 
 from app.database import get_conn
+from app.config import settings
 
 
 def die(msg: str, code: int = 1):
@@ -58,7 +59,15 @@ def run_isolation_forest(cur, business_date: str) -> dict:
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
-    clf = IsolationForest(n_estimators=200, contamination=0.1, random_state=42, n_jobs=-1)
+    if_contamination = float(settings.if_contamination)
+    if_threshold = float(settings.if_threshold)
+
+    clf = IsolationForest(
+        n_estimators=200,
+        contamination=if_contamination,
+        random_state=42,
+        n_jobs=-1,
+    )
     clf.fit(X_scaled)
 
     raw_scores = clf.decision_function(X_scaled)
@@ -69,8 +78,8 @@ def run_isolation_forest(cur, business_date: str) -> dict:
         normalized = [(max_s - s) / (max_s - min_s) for s in raw_scores]
 
     result = {bid: round(float(sc), 4) for bid, sc in zip(broker_ids, normalized)}
-    flagged = sum(1 for s in result.values() if s >= 0.6)
-    print(f"[IF] {len(result)} brokers scored, {flagged} flagged (>=0.6)")
+    flagged = sum(1 for s in result.values() if s >= if_threshold)
+    print(f"[IF] {len(result)} brokers scored, {flagged} flagged (>={if_threshold})")
     return result
 
 
@@ -177,21 +186,22 @@ def main():
             # 6) Isolation Forest (ML)
             if_scores = run_isolation_forest(cur, d)
             if if_scores:
-                IF_THRESHOLD = 0.60
+                if_threshold = float(settings.if_threshold)
+                if_contamination = float(settings.if_contamination)
                 if_added = 0
                 for broker_id, if_score in if_scores.items():
-                    if if_score < IF_THRESHOLD:
+                    if if_score < if_threshold:
                         continue
                     insert_anomaly(cur, d, "isolation_forest_anomaly", "broker", broker_id, if_score,
-                                   {"if_score": if_score, "threshold": IF_THRESHOLD,
-                                    "model": "IsolationForest(n_estimators=200, contamination=0.1)",
+                                   {"if_score": if_score, "threshold": if_threshold,
+                                    "model": f"IsolationForest(n_estimators=200, contamination={if_contamination})",
                                     "features": ["net_amount", "total_buy_amount", "total_sell_amount",
                                                  "trades_buy_count", "trades_sell_count",
                                                  "unique_symbols_buy", "unique_symbols_sell"],
                                     "note": "ML anomaly. Higher score = more isolated from normal broker behavior."})
                     if_added += 1
                 conn.commit()
-                print(f"[6] isolation_forest_anomaly: {if_added} flagged (>={IF_THRESHOLD})")
+                print(f"[6] isolation_forest_anomaly: {if_added} flagged (>={if_threshold})")
             else:
                 print("[6] isolation_forest_anomaly: skipped")
 
