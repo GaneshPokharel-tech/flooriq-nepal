@@ -57,7 +57,38 @@ jobs:
           # Retry because NEPSE endpoint sometimes returns unexpected payloads
           for i in 1 2 3 4 5; do
             echo "Attempt $i..."
-            if nepse-cli --get-floorsheet --to-csv --output-file data/raw/floorsheet_latest.csv; then
+            if python - <<'PY'
+          import csv
+          from nepse.NepseLib import Nepse
+
+          fieldnames = [
+              "contractId",
+              "stockSymbol",
+              "buyerMemberId",
+              "sellerMemberId",
+              "contractQuantity",
+              "contractRate",
+              "contractAmount",
+              "businessDate",
+              "tradeBookId",
+              "stockId",
+              "buyerBrokerName",
+              "sellerBrokerName",
+              "tradeTime",
+              "securityName",
+          ]
+
+          nepse = Nepse()
+          nepse.setTLSVerification(False)
+          rows = nepse.getFloorSheet(show_progress=False) or []
+
+          with open("data/raw/floorsheet_latest.csv", "w", newline="", encoding="utf-8") as handle:
+              writer = csv.DictWriter(handle, fieldnames=fieldnames)
+              writer.writeheader()
+              for row in rows:
+                  writer.writerow({key: row.get(key) for key in fieldnames})
+          PY
+            then
               # Validate header + non-empty file + basic truncation guard
               if [ -s data/raw/floorsheet_latest.csv ] \
                 && head -n 1 data/raw/floorsheet_latest.csv | grep -q "contractId" \
