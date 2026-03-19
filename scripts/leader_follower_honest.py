@@ -41,6 +41,7 @@ def load_symbol_trade_map(cur, calculation_date, start_business_date, has_contra
             FROM trades
             WHERE business_date >= %s
               AND business_date <= %s
+              AND trade_time IS NOT NULL
             ORDER BY stock_symbol, trade_time, buyer_member_id, seller_member_id, contract_id
         """, (start_business_date, calculation_date))
     else:
@@ -55,6 +56,7 @@ def load_symbol_trade_map(cur, calculation_date, start_business_date, has_contra
             FROM trades
             WHERE business_date >= %s
               AND business_date <= %s
+              AND trade_time IS NOT NULL
             ORDER BY stock_symbol, trade_time, buyer_member_id, seller_member_id, price, amount
         """, (start_business_date, calculation_date))
 
