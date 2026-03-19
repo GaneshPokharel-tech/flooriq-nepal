@@ -80,7 +80,40 @@ jobs:
 
           nepse = Nepse()
           nepse.setTLSVerification(False)
-          rows = nepse.getFloorSheet(show_progress=False) or []
+
+          size = getattr(nepse, "floor_sheet_size", 500)
+          base_url = nepse.api_end_points.get("floor_sheet")
+          url = f"{base_url}?&size={size}&sort=contractId,desc"
+
+          rows = []
+          try:
+              sheet = nepse.requestPOSTAPI(url, nepse.getPOSTPayloadIDForFloorSheet)
+
+              if isinstance(sheet, list):
+                  rows = sheet
+              elif sheet:
+                  floor_sheets = sheet.get("floorsheets", {}).get("content", [])
+                  total_pages = sheet.get("floorsheets", {}).get("totalPages", 1)
+
+                  for page_number in range(1, total_pages):
+                      current_sheet = nepse.requestPOSTAPI(
+                          f"{url}&page={page_number}",
+                          nepse.getPOSTPayloadIDForFloorSheet,
+                      )
+                      if isinstance(current_sheet, list):
+                          current_content = current_sheet
+                      elif current_sheet:
+                          current_content = current_sheet.get("floorsheets", {}).get("content", [])
+                      else:
+                          current_content = []
+                      floor_sheets.extend(current_content)
+
+                  rows = floor_sheets
+          except Exception as e:
+              import sys, traceback
+              print("Error while fetching floorsheet:", e, file=sys.stderr)
+              traceback.print_exc()
+              sys.exit(1)
 
           with open("data/raw/floorsheet_latest.csv", "w", newline="", encoding="utf-8") as handle:
               writer = csv.DictWriter(handle, fieldnames=fieldnames)
