@@ -53,7 +53,7 @@ def load_csv() -> pd.DataFrame:
         "stock_id": pd.to_numeric(df["stockId"], errors="coerce").astype("Int64"),
         "buyer_broker_name": df["buyerBrokerName"].astype("string"),
         "seller_broker_name": df["sellerBrokerName"].astype("string"),
-        "trade_time": pd.to_datetime(df["tradeTime"], errors="coerce", utc=True),
+        "trade_time": pd.to_datetime(df["tradeTime"], format="ISO8601", errors="coerce", utc=True),
         "security_name": df["securityName"].astype("string"),
         "source": "nepse-client",
     })
