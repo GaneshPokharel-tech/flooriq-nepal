@@ -69,9 +69,8 @@ def load_csv() -> pd.DataFrame:
     if df2["business_date"].isna().any():
         die("Some business_date values could not be parsed.")
     if df2["trade_time"].isna().any():
-        # trade_time parsing may fail for some rows; not fatal, but let's warn
         bad = int(df2["trade_time"].isna().sum())
-        print(f"[WARN] {bad} rows have unparsable trade_time; will insert NULL for those.")
+        die(f"{bad} rows have unparsable trade_time.")
 
     return df2
 
