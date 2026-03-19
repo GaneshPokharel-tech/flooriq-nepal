@@ -53,47 +53,7 @@ jobs:
           set -e
 
           validate_csv() {
-            python - <<'PYV'
-import pandas as pd
-import sys
-
-path = "data/raw/floorsheet_latest.csv"
-df = pd.read_csv(path, usecols=["contractId", "businessDate", "tradeTime"])
-
-row_count = len(df)
-business_dates = pd.to_datetime(df["businessDate"], errors="coerce").dt.date
-unique_dates = int(business_dates.nunique(dropna=True))
-
-trade_times = pd.to_datetime(
-    df["tradeTime"],
-    format="ISO8601",
-    errors="coerce",
-    utc=True,
-)
-null_trade_times = int(trade_times.isna().sum())
-
-min_trade_time = trade_times.min()
-max_trade_time = trade_times.max()
-span_minutes = None
-if not pd.isna(min_trade_time) and not pd.isna(max_trade_time):
-    span_minutes = (max_trade_time - min_trade_time).total_seconds() / 60.0
-
-print(f"[INFO] csv_row_count={row_count}")
-print(f"[INFO] csv_unique_business_dates={unique_dates}")
-print(f"[INFO] csv_null_trade_times={null_trade_times}")
-print(f"[INFO] csv_min_trade_time={min_trade_time}")
-print(f"[INFO] csv_max_trade_time={max_trade_time}")
-print(f"[INFO] csv_trade_span_minutes={span_minutes}")
-
-valid = (
-    unique_dates == 1
-    and row_count > 0
-    and null_trade_times == 0
-    and not (row_count < 10000 and (span_minutes is None or span_minutes < 180))
-)
-
-sys.exit(0 if valid else 1)
-PYV
+            python -c 'import pandas as pd, sys; path="data/raw/floorsheet_latest.csv"; df=pd.read_csv(path, usecols=["contractId","businessDate","tradeTime"]); row_count=len(df); business_dates=pd.to_datetime(df["businessDate"], errors="coerce").dt.date; unique_dates=int(business_dates.nunique(dropna=True)); trade_times=pd.to_datetime(df["tradeTime"], format="ISO8601", errors="coerce", utc=True); null_trade_times=int(trade_times.isna().sum()); min_trade_time=trade_times.min(); max_trade_time=trade_times.max(); span_minutes=None if pd.isna(min_trade_time) or pd.isna(max_trade_time) else (max_trade_time - min_trade_time).total_seconds() / 60.0; print(f"[INFO] csv_row_count={row_count}"); print(f"[INFO] csv_unique_business_dates={unique_dates}"); print(f"[INFO] csv_null_trade_times={null_trade_times}"); print(f"[INFO] csv_min_trade_time={min_trade_time}"); print(f"[INFO] csv_max_trade_time={max_trade_time}"); print(f"[INFO] csv_trade_span_minutes={span_minutes}"); valid=(unique_dates == 1 and row_count > 0 and null_trade_times == 0 and not (row_count < 10000 and (span_minutes is None or span_minutes < 180))); sys.exit(0 if valid else 1)'
           }
 
           # Retry because NEPSE endpoint sometimes returns unexpected payloads
