@@ -50,12 +50,18 @@ jobs:
           mkdir -p data/raw
           set -e
 
+          validate_csv() {
+            python -c 'import pandas as pd, sys; path="data/raw/floorsheet_latest.csv"; df=pd.read_csv(path, usecols=["contractId","businessDate","tradeTime"]); row_count=len(df); business_dates=pd.to_datetime(df["businessDate"], errors="coerce").dt.date; unique_dates=int(business_dates.nunique(dropna=True)); trade_times=pd.to_datetime(df["tradeTime"], errors="coerce", utc=True); min_trade_time=trade_times.min(); max_trade_time=trade_times.max(); span_minutes=None if pd.isna(min_trade_time) or pd.isna(max_trade_time) else (max_trade_time - min_trade_time).total_seconds() / 60.0; print(f"[INFO] csv_row_count={row_count}"); print(f"[INFO] csv_unique_business_dates={unique_dates}"); print(f"[INFO] csv_min_trade_time={min_trade_time}"); print(f"[INFO] csv_max_trade_time={max_trade_time}"); print(f"[INFO] csv_trade_span_minutes={span_minutes}"); (unique_dates == 1 and row_count > 0 and not (row_count < 10000 and (span_minutes is None or span_minutes < 180))) or sys.exit(1)'
+          }
+
           # Retry because NEPSE endpoint sometimes returns unexpected payloads
           for i in 1 2 3 4 5; do
             echo "Attempt $i..."
             if nepse-cli --get-floorsheet --to-csv --output-file data/raw/floorsheet_latest.csv; then
-              # Validate header + non-empty file
-              if [ -s data/raw/floorsheet_latest.csv ] && head -n 1 data/raw/floorsheet_latest.csv | grep -q "contractId"; then
+              # Validate header + non-empty file + basic truncation guard
+              if [ -s data/raw/floorsheet_latest.csv ] \
+                && head -n 1 data/raw/floorsheet_latest.csv | grep -q "contractId" \
+                && validate_csv; then
                 echo "Floorsheet CSV looks valid."
                 break
               fi
@@ -65,7 +71,9 @@ jobs:
           done
 
           # If still invalid, skip workflow gracefully (non-trading day / API issue)
-          if [ ! -s data/raw/floorsheet_latest.csv ] || ! head -n 1 data/raw/floorsheet_latest.csv | grep -q "contractId"; then
+          if [ ! -s data/raw/floorsheet_latest.csv ] \
+            || ! head -n 1 data/raw/floorsheet_latest.csv | grep -q "contractId" \
+            || ! validate_csv; then
             echo "WARNING: Could not fetch valid floorsheet CSV today."
             echo "skip=true" >> $GITHUB_OUTPUT
             exit 0
