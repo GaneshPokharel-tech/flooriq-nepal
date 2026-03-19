@@ -46,6 +46,8 @@ jobs:
       - name: Fetch floorsheet to CSV (retry + validate)
         if: ${{ !inputs.skip_fetch }}
         id: fetch
+        env:
+          TZ: "Asia/Kathmandu"
         run: |
           mkdir -p data/raw
           set -e
