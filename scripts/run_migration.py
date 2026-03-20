@@ -65,6 +65,9 @@ with get_conn() as conn:
         with open("scripts/create_model_registry_tables.sql", "r", encoding="utf-8") as f:
             cur.execute(f.read())
 
+        with open("scripts/create_secondary_acquisition_tables.sql", "r", encoding="utf-8") as f:
+            cur.execute(f.read())
+
     conn.commit()
 
 print("Migration complete!")
