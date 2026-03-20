@@ -16,7 +16,7 @@ This project is analytics-only. It provides descriptive insights and anomaly fla
 - notebooks/ — exploration and validation
 - scripts/ — production jobs (ingest, features, anomalies)
 - app/ — FastAPI app, routers, templates, and services
-- supabase/schema.sql — database schema
+- supabase/schema.sql — core runtime database schema
 - data/raw/, data/normalized/ — local-only working folders (gitignored)
 
 ## Setup (macOS)
@@ -28,45 +28,72 @@ source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
+
 ### 2) Configure environment variables
 ```bash
 cp .env.example .env
 ```
-### 3) Supabase schema
-Run `supabase/schema.sql` in Supabase **SQL Editor**.
 
-This will create tables:
+Fill in the Supabase DB connection values in `.env` before running the API, refresh pipeline, or database bootstrap (`SUPABASE_DB_HOST`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`; port/name/sslmode have code defaults).
+
+### 3) Supabase schema
+Run `supabase/schema.sql` in Supabase **SQL Editor**. This is the current core runtime schema source for the app and refresh pipeline.
+
+This creates the core analytics tables:
 - `raw_floorsheet`, `trades`
 - `broker_daily_features`, `symbol_daily_features`
 - `anomalies`
 
+It also creates the currently-used supporting runtime tables in the same schema file:
+- `brokers_subscription`, `payment_requests`
+- `admin_users`, `broker_audit_log`
+- `model_registry`, `model_training_runs`
+
+### 4) Reviewed follow-up bootstrap path (optional)
+If you explicitly want the additional idempotent bootstrap path reviewed in this repo, run:
+
+```bash
+PYTHONPATH=. python scripts/run_migration.py
+```
+
+This is not part of the standard setup path. It applies additional idempotent bootstrap work and also creates the dormant secondary acquisition provenance tables from `scripts/create_secondary_acquisition_tables.sql`.
 
 ## Daily pipeline (manual)
+
+The real operational refresh entrypoint used for scheduled/manual runs is:
+
+```bash
+PYTHONPATH=. python scripts/refresh.py
+```
+
+Use `--skip-fetch` if the floorsheet CSV already exists locally. The commands below are the core analytics stages that refresh orchestrates.
 
 ### 1) Fetch floorsheet CSV
 ```bash
 nepse-cli --get-floorsheet --to-csv --output-file data/raw/floorsheet_latest.csv
 ```
+
 ### 2) Ingest (raw + normalized trades)
-
 ```bash
-python scripts/ingest_floorsheet.py
+PYTHONPATH=. python scripts/ingest_floorsheet.py
 ```
+
 ### 3) Build daily features
-
 ```bash
-python scripts/build_daily_features.py YYYY-MM-DD
+PYTHONPATH=. python scripts/build_daily_features.py YYYY-MM-DD
 ```
+
 ### 4) Detect anomalies
-
 ```bash
-python scripts/detect_anomalies.py YYYY-MM-DD
+PYTHONPATH=. python scripts/detect_anomalies.py YYYY-MM-DD
 ```
+
 ## Run the API
 
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
+
 ## API endpoints
 
 - `GET /insights/broker/{id}`
