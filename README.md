@@ -56,7 +56,13 @@ If you explicitly want the additional idempotent bootstrap path reviewed in this
 PYTHONPATH=. python scripts/run_migration.py
 ```
 
-This is not part of the standard setup path. It applies additional idempotent bootstrap work and also creates the dormant secondary acquisition provenance tables from `scripts/create_secondary_acquisition_tables.sql`.
+This is not part of the standard setup path. It applies the additional idempotent bootstrap work only.
+
+To also create the dormant secondary acquisition provenance tables from `scripts/create_secondary_acquisition_tables.sql`, pass the explicit flag:
+
+```bash
+PYTHONPATH=. python scripts/run_migration.py --include-secondary-acquisition-provenance
+```
 
 ## Daily pipeline (manual)
 

@@ -1,3 +1,5 @@
+import argparse
+
 from app.database import get_conn
 
 sql = """
@@ -58,16 +60,30 @@ SET trial_end = CURRENT_DATE + INTERVAL '30 days',
 WHERE trial_end IS NULL AND subscription_end IS NULL;
 """
 
-with get_conn() as conn:
-    with conn.cursor() as cur:
-        cur.execute(sql)
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--include-secondary-acquisition-provenance",
+        action="store_true",
+        help="Create the secondary acquisition provenance tables.",
+    )
+    args = parser.parse_args()
 
-        with open("scripts/create_model_registry_tables.sql", "r", encoding="utf-8") as f:
-            cur.execute(f.read())
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql)
 
-        with open("scripts/create_secondary_acquisition_tables.sql", "r", encoding="utf-8") as f:
-            cur.execute(f.read())
+            with open("scripts/create_model_registry_tables.sql", "r", encoding="utf-8") as f:
+                cur.execute(f.read())
 
-    conn.commit()
+            if args.include_secondary_acquisition_provenance:
+                with open("scripts/create_secondary_acquisition_tables.sql", "r", encoding="utf-8") as f:
+                    cur.execute(f.read())
 
-print("Migration complete!")
+        conn.commit()
+
+    print("Migration complete!")
+
+
+if __name__ == "__main__":
+    main()
