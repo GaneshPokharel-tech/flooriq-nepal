@@ -12,6 +12,7 @@ from app.database import get_conn
 RUNS_TABLE = "public.acquisition_runs"
 EVIDENCE_TABLE = "public.raw_floorsheet_evidence"
 INGEST_SCRIPT = "scripts/ingest_secondary_evidence.py"
+EVIDENCE_INSERT_BATCH_SIZE = 1000
 
 INSERT_EVIDENCE_SQL = f"""
 INSERT INTO {EVIDENCE_TABLE} (
@@ -41,6 +42,25 @@ VALUES (
     %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb
 )
 """
+
+
+def flush_evidence_batch(cur, batch, progress: dict[str, date | int | None]):
+    if not batch:
+        return
+
+    cur.execute("SAVEPOINT evidence_insert_batch")
+    try:
+        cur.executemany(INSERT_EVIDENCE_SQL, batch)
+    except Exception:
+        cur.execute("ROLLBACK TO SAVEPOINT evidence_insert_batch")
+        for params in batch:
+            cur.execute(INSERT_EVIDENCE_SQL, params)
+            progress["row_count"] = int(progress["row_count"] or 0) + 1
+    else:
+        progress["row_count"] = int(progress["row_count"] or 0) + len(batch)
+
+    cur.execute("RELEASE SAVEPOINT evidence_insert_batch")
+    batch.clear()
 
 
 def die(msg: str, code: int = 1):
@@ -247,6 +267,7 @@ def ingest_csv(
             raise ValueError("CSV missing required businessDate column.")
 
         with conn.cursor() as cur:
+            evidence_batch = []
             for raw_row in reader:
                 csv_row_number = reader.line_num
 
@@ -255,6 +276,7 @@ def ingest_csv(
 
                 business_date = parse_date_text(pick(raw_row, "businessDate", "business_date"))
                 if business_date is None:
+                    flush_evidence_batch(cur, evidence_batch, progress)
                     raise ValueError(
                         f"Row {csv_row_number} has missing or unparsable business_date."
                     )
@@ -267,11 +289,13 @@ def ingest_csv(
                         requested_business_date is not None
                         and detected_business_date != requested_business_date
                     ):
+                        flush_evidence_batch(cur, evidence_batch, progress)
                         raise ValueError(
                             "requested_business_date mismatch: "
                             f"expected {requested_business_date}, detected {detected_business_date}."
                         )
                 elif business_date != detected_business_date:
+                    flush_evidence_batch(cur, evidence_batch, progress)
                     raise ValueError(
                         "V1 expects exactly one business_date per CSV: "
                         f"row {csv_row_number} has {business_date}, "
@@ -279,8 +303,7 @@ def ingest_csv(
                     )
 
                 raw_payload = dict(raw_row)
-                cur.execute(
-                    INSERT_EVIDENCE_SQL,
+                evidence_batch.append(
                     (
                         run_id,
                         source_name,
@@ -302,9 +325,12 @@ def ingest_csv(
                         build_source_record_hash(raw_payload),
                         json.dumps(raw_payload),
                         json.dumps({"csv_row_number": csv_row_number}),
-                    ),
+                    )
                 )
-                progress["row_count"] = int(progress["row_count"] or 0) + 1
+                if len(evidence_batch) >= EVIDENCE_INSERT_BATCH_SIZE:
+                    flush_evidence_batch(cur, evidence_batch, progress)
+
+            flush_evidence_batch(cur, evidence_batch, progress)
 
     detected_business_date = progress["detected_business_date"]
     if detected_business_date is None:
